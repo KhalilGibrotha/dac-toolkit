@@ -29,6 +29,15 @@ RUN echo '{"args":["--no-sandbox","--disable-setuid-sandbox","--disable-dev-shm-
     > /opt/puppeteer-config.json
 ENV PUPPETEER_CONFIG=/opt/puppeteer-config.json
 
+# ── Vale prose linter ─────────────────────────────────────────────────────
+ARG VALE_VERSION=3.9.5
+COPY .vale-bootstrap.ini /tmp/.vale.ini
+RUN curl -fsSL "https://github.com/errata-ai/vale/releases/download/v${VALE_VERSION}/vale_${VALE_VERSION}_Linux_64-bit.tar.gz" \
+    | tar xz -C /usr/local/bin vale \
+    && cd /tmp && vale sync \
+    && mv .vale/styles /opt/vale-styles \
+    && rm .vale.ini
+
 # ── Python dependencies (pre-installed so editable install works offline) ────
 RUN pip install --no-cache-dir \
     "python-docx>=1.1.0" \
