@@ -64,30 +64,63 @@ components:
 # ── Commands ─────────────────────────────────────────────────────────────────
 commands:
 
-  # Runs after workspace starts — installs tools not in UDI.
-  # Skip this if using the custom Dockerfile.devspaces image.
+  # Runs after workspace starts. Detects whether tools are pre-baked
+  # (custom Dockerfile.devspaces image) or need runtime installation (UDI).
   - id: install-tools
     exec:
       component: tools
       commandLine: |
         set -e
-        echo "=== Installing mmdc (mermaid-cli) ==="
-        npm install -g @mermaid-js/mermaid-cli
-        PUPCONFIG="/opt/puppeteer-config.json"
-        echo '{"args":["--no-sandbox","--disable-setuid-sandbox","--disable-dev-shm-usage"]}' \
-          > "$PUPCONFIG" 2>/dev/null || {
-          PUPCONFIG="$HOME/.puppeteer-config.json"
+
+        # ── mmdc (mermaid-cli) ──────────────────────────────────────────
+        if command -v mmdc &>/dev/null; then
+          echo "=== mmdc already installed (pre-baked image) ==="
+        else
+          echo "=== Installing mmdc (mermaid-cli) ==="
+          npm install -g @mermaid-js/mermaid-cli
+          PUPCONFIG="/opt/puppeteer-config.json"
           echo '{"args":["--no-sandbox","--disable-setuid-sandbox","--disable-dev-shm-usage"]}' \
-            > "$PUPCONFIG"
-        }
-        export PUPPETEER_CONFIG="$PUPCONFIG"
-        echo "=== Installing docx_builder ==="
-        pip install --quiet "python-docx>=1.1.0" "PyYAML>=6.0" "mistune>=3.0" "lxml>=4.9"
+            > "$PUPCONFIG" 2>/dev/null || {
+            PUPCONFIG="$HOME/.puppeteer-config.json"
+            echo '{"args":["--no-sandbox","--disable-setuid-sandbox","--disable-dev-shm-usage"]}' \
+              > "$PUPCONFIG"
+          }
+          export PUPPETEER_CONFIG="$PUPCONFIG"
+        fi
+
+        # ── Vale prose linter ───────────────────────────────────────────
+        if command -v vale &>/dev/null; then
+          echo "=== Vale already installed (pre-baked image) ==="
+        else
+          echo "=== Vale not found — skipping (install manually or use custom image) ==="
+        fi
+
+        # ── Vale styles bootstrap (copy pre-baked styles into content repos) ──
+        if [ -d /opt/vale-styles ]; then
+          for repo in /projects/*/; do
+            if [ -f "$repo/.vale.ini" ]; then
+              mkdir -p "$repo/.vale/styles"
+              cp -rn /opt/vale-styles/* "$repo/.vale/styles/" 2>/dev/null || true
+              echo "=== Vale styles copied to $repo ==="
+            fi
+          done
+        fi
+
+        # ── Python dependencies + docx_builder ─────────────────────────
+        if command -v docx-build &>/dev/null; then
+          echo "=== docx_builder already installed ==="
+        else
+          echo "=== Installing docx_builder ==="
+          pip install --quiet "python-docx>=1.1.0" "PyYAML>=6.0" "mistune>=3.0" "lxml>=4.9"
+        fi
         pip install --no-deps -e /projects/dac-toolkit/docx_builder
+
+        # ── Verify ──────────────────────────────────────────────────────
         echo "=== Verifying tools ==="
-        mmdc --version
-        pandoc --version | head -1
+        mmdc --version || echo "WARN: mmdc not available"
+        pandoc --version | head -1 || echo "WARN: pandoc not available"
         docx-build --help | head -1 || { echo "ERROR: docx-build not available"; exit 1; }
+        vale --version 2>/dev/null || echo "INFO: vale not installed"
         echo "=== Workspace ready ==="
       workingDir: /projects
 
