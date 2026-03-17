@@ -26,5 +26,9 @@ if [[ ! -d "$PREBAKED" ]]; then
 fi
 
 mkdir -p "$CONTENT_DIR/.vale/styles"
-cp -rn "$PREBAKED"/* "$CONTENT_DIR/.vale/styles/" 2>/dev/null || true
-echo "vale-bootstrap: pre-baked styles copied to $CONTENT_DIR/.vale/styles/"
+if [ -n "$(ls -A "$PREBAKED")" ]; then
+    cp -rn "$PREBAKED"/* "$CONTENT_DIR/.vale/styles/"
+    echo "vale-bootstrap: pre-baked styles copied to $CONTENT_DIR/.vale/styles/"
+else
+    echo "vale-bootstrap: no styles found in $PREBAKED — skipping"
+fi

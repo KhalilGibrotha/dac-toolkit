@@ -31,12 +31,10 @@ ENV PUPPETEER_CONFIG=/opt/puppeteer-config.json
 
 # ── Vale prose linter ─────────────────────────────────────────────────────
 ARG VALE_VERSION=3.9.5
-RUN curl -fsSL "https://github.com/errata-ai/vale/releases/download/v${VALE_VERSION}/vale_${VALE_VERSION}_Linux_64-bit.tar.gz" \
-    | tar xz -C /usr/local/bin vale
-
-# Pre-download Vale style packages for offline use (network_mode: none at runtime)
 COPY .vale-bootstrap.ini /tmp/.vale.ini
-RUN cd /tmp && vale sync \
+RUN curl -fsSL "https://github.com/errata-ai/vale/releases/download/v${VALE_VERSION}/vale_${VALE_VERSION}_Linux_64-bit.tar.gz" \
+    | tar xz -C /usr/local/bin vale \
+    && cd /tmp && vale sync \
     && mv .vale/styles /opt/vale-styles \
     && rm .vale.ini
 
