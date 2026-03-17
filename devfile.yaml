@@ -28,16 +28,15 @@ projects:
 # ── Components ───────────────────────────────────────────────────────────────
 components:
 
-  # Development container — swap image to your custom build for fully offline use.
+  # Development container — custom image with all tools pre-baked:
+  #   mmdc (mermaid-cli), Vale, Pandoc, gh CLI, Python deps
   #
-  # For offline/air-gapped: build and push the custom image, then replace the
-  # image line below:
-  #   image: <your-registry>/dac-toolkit:latest
+  # To revert to the generic UDI (no mmdc/Vale), change image to:
+  #   image: registry.redhat.io/devspaces/udi-rhel8:latest
   #
   - name: tools
     container:
-      # Universal Developer Image — includes Python 3, Node.js, common CLI tools
-      image: registry.redhat.io/devspaces/udi-rhel8:latest
+      image: ghcr.io/khalilgibrotha/dac-toolkit:latest
       memoryRequest: 512Mi
       memoryLimit: 4Gi
       cpuRequest: 250m
