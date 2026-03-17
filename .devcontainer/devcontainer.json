@@ -5,7 +5,7 @@
   "workspaceFolder": "/workspace",
 
   // Install docx_builder as editable package (deps already in image, --no-deps keeps it offline)
-  "postCreateCommand": "pip install --no-deps -e /workspace/scripts/docx_builder",
+  "postCreateCommand": "pip install --no-deps -e /workspace/docx_builder && bash /workspace/scripts/vale-bootstrap.sh",
 
   "remoteUser": "vscode",
 
@@ -19,7 +19,8 @@
         "bierner.markdown-mermaid",
         "yzhang.markdown-all-in-one",
         "ms-python.python",
-        "ms-python.vscode-pylance"
+        "ms-python.vscode-pylance",
+        "ChrisChinchilla.vale-vscode"
       ]
     }
   }
