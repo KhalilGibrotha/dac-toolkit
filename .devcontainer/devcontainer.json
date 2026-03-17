@@ -1,0 +1,26 @@
+{
+  "name": "DAC Toolkit",
+  "dockerComposeFile": "docker-compose.yml",
+  "service": "workspace",
+  "workspaceFolder": "/workspace",
+
+  // Install docx_builder as editable package (deps already in image, --no-deps keeps it offline)
+  "postCreateCommand": "pip install --no-deps -e /workspace/scripts/docx_builder",
+
+  "remoteUser": "vscode",
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "DavidAnson.vscode-markdownlint",
+        "redhat.vscode-yaml",
+        "charliermarsh.ruff",
+        "streetsidesoftware.code-spell-checker",
+        "bierner.markdown-mermaid",
+        "yzhang.markdown-all-in-one",
+        "ms-python.python",
+        "ms-python.vscode-pylance"
+      ]
+    }
+  }
+}

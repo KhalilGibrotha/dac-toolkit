@@ -1,0 +1,6 @@
+# Force LF line endings for files that run inside the Linux container.
+# Prevents CRLF issues when checked out on Windows.
+*.sh text eol=lf
+*.py text eol=lf
+Makefile text eol=lf
+Dockerfile* text eol=lf

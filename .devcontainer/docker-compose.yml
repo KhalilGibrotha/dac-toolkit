@@ -1,0 +1,14 @@
+services:
+  workspace:
+    build:
+      context: ..
+      dockerfile: .devcontainer/Dockerfile
+    volumes:
+      - ..:/workspace:cached
+    # ── Network isolation: zero outbound connections at runtime ──
+    # All dependencies are baked into the image at build time.
+    # VS Code communicates via Docker exec channel, not TCP.
+    network_mode: "none"
+    # Increase shared memory for Chromium (default 64 MB causes crashes)
+    shm_size: "1gb"
+    command: sleep infinity

@@ -1,0 +1,59 @@
+# Dev Spaces / OpenShift-compatible image
+# Handles arbitrary UIDs (OpenShift security model) and uses UBI base.
+#
+# Build and push to your internal registry:
+#   podman build -f .devcontainer/Dockerfile.devspaces -t <registry>/dac-toolkit:latest .
+#   podman push <registry>/dac-toolkit:latest
+#
+FROM registry.access.redhat.com/ubi9/python-312:latest
+
+USER 0
+
+# ── System dependencies for Chromium (Puppeteer) and Pandoc ──────────────────
+RUN dnf install -y --nodocs \
+    # Chromium runtime libraries
+    nss atk at-spi2-atk cups-libs libdrm \
+    libXcomposite libXdamage libXrandr mesa-libgbm pango \
+    cairo alsa-lib libxshmfence libxkbcommon \
+    liberation-fonts \
+    # Pandoc
+    pandoc \
+    # Utilities
+    jq \
+    && dnf clean all
+
+# ── Node.js 20 LTS ──────────────────────────────────────────────────────────
+RUN dnf module enable -y nodejs:20 \
+    && dnf install -y --nodocs nodejs npm \
+    && dnf clean all
+
+# ── Mermaid CLI (mmdc) — installs Puppeteer + bundled Chromium ───────────────
+ENV PUPPETEER_CACHE_DIR=/opt/puppeteer-cache
+RUN npm install -g @mermaid-js/mermaid-cli \
+    && npm cache clean --force \
+    && chmod -R g+rx /opt/puppeteer-cache
+
+# Puppeteer launch flags for containerized Chromium
+RUN echo '{"args":["--no-sandbox","--disable-setuid-sandbox","--disable-dev-shm-usage"]}' \
+    > /opt/puppeteer-config.json \
+    && chmod 644 /opt/puppeteer-config.json
+ENV PUPPETEER_CONFIG=/opt/puppeteer-config.json
+
+# ── Python dependencies (pre-installed so editable install works offline) ────
+RUN pip install --no-cache-dir \
+    "python-docx>=1.1.0" \
+    "PyYAML>=6.0" \
+    "mistune>=3.0" \
+    "lxml>=4.9"
+
+# ── OpenShift arbitrary UID support ──────────────────────────────────────────
+# OpenShift runs containers with a random UID in the root group (GID 0).
+# All directories the process writes to must be group-writable.
+RUN mkdir -p /home/user /projects \
+    && chgrp -R 0 /home/user /opt/puppeteer-cache \
+    && chmod -R g=u /home/user /etc/passwd /opt/puppeteer-cache
+
+ENV HOME=/home/user
+WORKDIR /projects
+
+USER 1001

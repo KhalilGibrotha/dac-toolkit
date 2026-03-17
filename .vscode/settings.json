@@ -1,0 +1,40 @@
+{
+  // ── Markdown ──────────────────────────────────────────────────────────────
+  "[markdown]": {
+    "editor.wordWrap": "on",
+    "editor.quickSuggestions": {
+      "comments": "off",
+      "strings": "off",
+      "other": "off"
+    },
+    "editor.defaultFormatter": "DavidAnson.vscode-markdownlint"
+  },
+
+  // ── Python ────────────────────────────────────────────────────────────────
+  "[python]": {
+    "editor.defaultFormatter": "charliermarsh.ruff",
+    "editor.formatOnSave": true
+  },
+
+  // ── YAML ──────────────────────────────────────────────────────────────────
+  "[yaml]": {
+    "editor.defaultFormatter": "redhat.vscode-yaml"
+  },
+
+  // ── Spellcheck ────────────────────────────────────────────────────────────
+  "cSpell.customDictionaries": {
+    "project-terms": {
+      "name": "project-terms",
+      "path": "${workspaceFolder}/.vscode/project-terms.txt",
+      "addWords": true,
+      "scope": "workspace"
+    }
+  },
+
+  // ── File display ──────────────────────────────────────────────────────────
+  "files.exclude": {
+    "**/__pycache__": true,
+    "**/*.pyc": true,
+    "**/.pytest_cache": true
+  }
+}

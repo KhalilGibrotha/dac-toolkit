@@ -1,0 +1,90 @@
+/*
+ * mermaid-theme.css — Custom Mermaid theme for docx_builder
+ *
+ * Used by mmdc (Mermaid CLI) via --cssFile when Node.js is available.
+ * Ignored by the mermaid.ink API backend.
+ *
+ * To activate:
+ *   Set DOCX_BUILDER_MERMAID_CSS to the absolute path of this file, or
+ *   configure your build so that mmdc is invoked with --cssFile pointing to
+ *   this file (for example, at diagrams/mermaid-theme.css in your repo).
+ *
+ * Colour references (matched to the default document theme):
+ *   Dark navy  #1F4E79   — H1 heading colour, cover title
+ *   Mid blue   #2E75B6   — H2 heading colour, table headers
+ *   Teal       #17676B   — TOC section heading
+ *   Link blue  #17508D   — hyperlinks
+ *
+ * Uncomment and adjust the rules below once mmdc is available in your
+ * build environment. The current file is a documented placeholder.
+ */
+
+/* ── Node shapes ────────────────────────────────────────────────────────────── */
+
+/*
+.node rect,
+.node circle,
+.node ellipse,
+.node polygon,
+.node path {
+  fill: #E8F0F7;
+  stroke: #2E75B6;
+  stroke-width: 1.5px;
+}
+
+.node .label {
+  color: #1F4E79;
+  font-family: Calibri, sans-serif;
+  font-size: 13px;
+}
+*/
+
+/* ── Edge / arrow lines ─────────────────────────────────────────────────────── */
+
+/*
+.edgePath .path {
+  stroke: #2E75B6;
+  stroke-width: 1.5px;
+}
+
+.arrowheadPath {
+  fill: #2E75B6;
+}
+*/
+
+/* ── Subgraph labels ────────────────────────────────────────────────────────── */
+
+/*
+.cluster rect {
+  fill: #F0F4F9;
+  stroke: #17676B;
+  stroke-width: 1.5px;
+  rx: 4px;
+}
+
+.cluster .label {
+  color: #17676B;
+  font-family: Calibri, sans-serif;
+  font-weight: bold;
+  font-size: 12px;
+}
+*/
+
+/* ── Sequence diagram ───────────────────────────────────────────────────────── */
+
+/*
+.actor {
+  fill: #E8F0F7;
+  stroke: #2E75B6;
+}
+
+.actor > text {
+  fill: #1F4E79;
+  font-family: Calibri, sans-serif;
+}
+
+.messageLine0,
+.messageLine1 {
+  stroke: #2E75B6;
+}
+*/

@@ -1,0 +1,12 @@
+{
+  "recommendations": [
+    "DavidAnson.vscode-markdownlint",
+    "redhat.vscode-yaml",
+    "charliermarsh.ruff",
+    "streetsidesoftware.code-spell-checker",
+    "bierner.markdown-mermaid",
+    "yzhang.markdown-all-in-one",
+    "ms-python.python",
+    "ms-python.vscode-pylance"
+  ]
+}

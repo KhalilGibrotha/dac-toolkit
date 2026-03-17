@@ -1,0 +1,26 @@
+# Runtime dependencies for docx_builder
+# Install with: pip install -r requirements.txt
+# Or install as a package: pip install -e .
+
+python-docx>=1.1.0
+PyYAML>=6.0
+mistune>=3.0
+lxml>=4.9
+
+# ── Optional: Mermaid diagram rendering ───────────────────────────────────────
+# Inline ```mermaid fences and ![](path) image references are supported
+# without any additional Python dependencies.
+#
+# kroki.io (default backend when DOCX_BUILDER_MERMAID_BACKEND=auto, no install required):
+#   Diagrams are rendered via the public kroki.io API (with Mermaid support).
+#   Requires internet access at build time.
+#
+# mermaid.ink (fallback backend when kroki.io is unavailable, no install required):
+#   Diagrams are rendered via the public mermaid.ink API.
+#   Also requires internet access at build time.
+#
+# mmdc — Mermaid CLI (preferred when Node.js is available):
+#   Produces higher-quality output and supports custom CSS themes.
+#   Install: npm install -g @mermaid-js/mermaid-cli
+#   Auto-detected when mmdc is in PATH (GitHub Actions, devspace containers).
+#   See diagrams/mermaid-theme.css for a starter custom theme file.

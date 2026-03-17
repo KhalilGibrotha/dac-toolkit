@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "docx-builder"
+version = "1.0.0"
+description = "Converts Markdown + YAML front matter to styled DOCX with cover page, TOC, and auto-numbered headings"
+requires-python = ">=3.10"
+dependencies = [
+    "python-docx>=1.1.0",
+    "PyYAML>=6.0",
+    "mistune>=3.0",
+    "lxml>=4.9",
+]
+
+[project.scripts]
+docx-build = "docx_builder.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

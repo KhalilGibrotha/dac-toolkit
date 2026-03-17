@@ -1,0 +1,130 @@
+schemaVersion: 2.2.0
+metadata:
+  name: dac-toolkit
+  description: >
+    Documentation-as-Code toolkit workspace with docx_builder, mmdc, and Pandoc.
+    Converts Markdown + YAML front matter to styled DOCX. Fully offline when
+    using the pre-built custom image.
+
+# ── Projects ─────────────────────────────────────────────────────────────────
+# The toolkit repo is always included. Add your content repos below.
+# Each repo is cloned to /projects/<name>/ in the workspace.
+projects:
+  - name: dac-toolkit
+    git:
+      remotes:
+        origin: https://github.com/KhalilGibrotha/dac-toolkit
+      checkoutFrom:
+        revision: main
+
+  # Uncomment and edit to add content repos:
+  # - name: architecture-docs
+  #   git:
+  #     remotes:
+  #       origin: https://github.com/KhalilGibrotha/architecture-docs
+  #     checkoutFrom:
+  #       revision: master
+
+# ── Components ───────────────────────────────────────────────────────────────
+components:
+
+  # Development container — swap image to your custom build for fully offline use.
+  #
+  # For offline/air-gapped: build and push the custom image, then replace the
+  # image line below:
+  #   image: <your-registry>/dac-toolkit:latest
+  #
+  - name: tools
+    container:
+      # Universal Developer Image — includes Python 3, Node.js, common CLI tools
+      image: registry.redhat.io/devspaces/udi-rhel8:latest
+      memoryRequest: 512Mi
+      memoryLimit: 4Gi
+      cpuRequest: 250m
+      cpuLimit: 2000m
+      mountSources: true
+      sourceMapping: /projects
+      env:
+        - name: PUPPETEER_CONFIG
+          value: /opt/puppeteer-config.json
+        - name: PUPPETEER_CACHE_DIR
+          value: /opt/puppeteer-cache
+        - name: DAC_TOOLKIT_DIR
+          value: /projects/dac-toolkit
+      endpoints:
+        - name: docs-preview
+          targetPort: 8080
+          exposure: internal
+
+  # Persistent volume for exported documents
+  - name: exports-volume
+    volume:
+      size: 1Gi
+
+# ── Commands ─────────────────────────────────────────────────────────────────
+commands:
+
+  # Runs after workspace starts — installs tools not in UDI.
+  # Skip this if using the custom Dockerfile.devspaces image.
+  - id: install-tools
+    exec:
+      component: tools
+      commandLine: |
+        set -e
+        echo "=== Installing mmdc (mermaid-cli) ==="
+        npm install -g @mermaid-js/mermaid-cli
+        PUPCONFIG="/opt/puppeteer-config.json"
+        echo '{"args":["--no-sandbox","--disable-setuid-sandbox","--disable-dev-shm-usage"]}' \
+          > "$PUPCONFIG" 2>/dev/null || {
+          PUPCONFIG="$HOME/.puppeteer-config.json"
+          echo '{"args":["--no-sandbox","--disable-setuid-sandbox","--disable-dev-shm-usage"]}' \
+            > "$PUPCONFIG"
+        }
+        export PUPPETEER_CONFIG="$PUPCONFIG"
+        echo "=== Installing docx_builder ==="
+        pip install --quiet "python-docx>=1.1.0" "PyYAML>=6.0" "mistune>=3.0" "lxml>=4.9"
+        pip install --no-deps -e /projects/dac-toolkit/docx_builder
+        echo "=== Verifying tools ==="
+        mmdc --version
+        pandoc --version | head -1
+        docx-build --help | head -1 || { echo "ERROR: docx-build not available"; exit 1; }
+        echo "=== Workspace ready ==="
+      workingDir: /projects
+
+  # Build all DOCX documents from a content repo
+  - id: build-all-docs
+    exec:
+      component: tools
+      commandLine: >
+        bash /projects/dac-toolkit/scripts/build-docs.sh
+        /projects/architecture-docs
+      workingDir: /projects
+      group:
+        kind: build
+
+  # Render diagrams only
+  - id: render-diagrams
+    exec:
+      component: tools
+      commandLine: >
+        bash /projects/dac-toolkit/scripts/render-diagrams.sh
+        /projects/architecture-docs
+      workingDir: /projects
+      group:
+        kind: build
+
+  # Build a single document (edit the path as needed)
+  - id: build-single-doc
+    exec:
+      component: tools
+      commandLine: >
+        docx-build "${CURRENT_FILE:-/projects/dac-toolkit/docx_builder/examples/sample_input.md}"
+        --output /projects/exports/preview.docx
+      workingDir: /projects
+      group:
+        kind: build
+
+# ── Lifecycle Events ─────────────────────────────────────────────────────────
+events:
+  postStart:
+    - install-tools

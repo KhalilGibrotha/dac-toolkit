@@ -1,0 +1,14 @@
+# org.yaml — Organization identity for cover page and footer
+#
+# Place this file in your content repo at vars/org.yaml.
+# The build script auto-detects it and passes it to docx-build via --org.
+#
+# You can also pass it manually:
+#   docx-build doc.md --org path/to/org.yaml
+#
+org:
+  name: "Acme Corp"
+  dept: "Enterprise Architecture"
+  addr1: "123 Main Street"
+  addr2: "Anytown, USA"
+  url: "www.example.com"
