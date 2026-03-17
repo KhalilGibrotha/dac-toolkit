@@ -70,29 +70,36 @@ commands:
     exec:
       component: tools
       commandLine: |
-        set -e
+        # NOTE: No "set -e" — each section handles its own errors so a
+        # non-critical tool failure doesn't crash the entire workspace.
 
         # ── mmdc (mermaid-cli) ──────────────────────────────────────────
+        # mmdc + Puppeteer/Chromium cannot be installed at runtime in most
+        # Dev Spaces environments. Use the custom image (Dockerfile.devspaces)
+        # for full mmdc support. This block is best-effort only.
         if command -v mmdc &>/dev/null; then
           echo "=== mmdc already installed (pre-baked image) ==="
         else
-          echo "=== Installing mmdc (mermaid-cli) ==="
-          npm install -g @mermaid-js/mermaid-cli
-          PUPCONFIG="/opt/puppeteer-config.json"
-          echo '{"args":["--no-sandbox","--disable-setuid-sandbox","--disable-dev-shm-usage"]}' \
-            > "$PUPCONFIG" 2>/dev/null || {
-            PUPCONFIG="$HOME/.puppeteer-config.json"
+          echo "=== Attempting mmdc install (may fail on UDI — use custom image for full support) ==="
+          if npm install -g @mermaid-js/mermaid-cli 2>&1; then
+            PUPCONFIG="/opt/puppeteer-config.json"
             echo '{"args":["--no-sandbox","--disable-setuid-sandbox","--disable-dev-shm-usage"]}' \
-              > "$PUPCONFIG"
-          }
-          export PUPPETEER_CONFIG="$PUPCONFIG"
+              > "$PUPCONFIG" 2>/dev/null || {
+              PUPCONFIG="$HOME/.puppeteer-config.json"
+              echo '{"args":["--no-sandbox","--disable-setuid-sandbox","--disable-dev-shm-usage"]}' \
+                > "$PUPCONFIG"
+            }
+            export PUPPETEER_CONFIG="$PUPCONFIG"
+          else
+            echo "WARN: mmdc install failed — diagram rendering unavailable. Use custom image."
+          fi
         fi
 
         # ── Vale prose linter ───────────────────────────────────────────
         if command -v vale &>/dev/null; then
           echo "=== Vale already installed (pre-baked image) ==="
         else
-          echo "=== Vale not found — skipping (install manually or use custom image) ==="
+          echo "INFO: Vale not found — use custom image for prose linting support"
         fi
 
         # ── Vale styles bootstrap (copy pre-baked styles into content repos) ──
@@ -111,14 +118,18 @@ commands:
           echo "=== docx_builder already installed ==="
         else
           echo "=== Installing docx_builder ==="
-          pip install --quiet "python-docx>=1.1.0" "PyYAML>=6.0" "mistune>=3.0" "lxml>=4.9"
+          pip install --quiet "python-docx>=1.1.0" "PyYAML>=6.0" "mistune>=3.0" "lxml>=4.9" || {
+            echo "ERROR: Failed to install Python dependencies"; exit 1;
+          }
         fi
-        pip install --no-deps -e /projects/dac-toolkit/docx_builder
+        pip install --no-deps -e /projects/dac-toolkit/docx_builder || {
+          echo "ERROR: Failed to install docx_builder"; exit 1;
+        }
 
         # ── Verify ──────────────────────────────────────────────────────
         echo "=== Verifying tools ==="
-        mmdc --version || echo "WARN: mmdc not available"
-        pandoc --version | head -1 || echo "WARN: pandoc not available"
+        mmdc --version 2>/dev/null || echo "WARN: mmdc not available (diagram rendering disabled)"
+        pandoc --version 2>/dev/null | head -1 || echo "WARN: pandoc not available"
         docx-build --help | head -1 || { echo "ERROR: docx-build not available"; exit 1; }
         vale --version 2>/dev/null || echo "INFO: vale not installed"
         echo "=== Workspace ready ==="
