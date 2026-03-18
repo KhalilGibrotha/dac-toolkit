@@ -139,7 +139,7 @@ commands:
         docx-build --help | head -1 2>/dev/null || echo "WARN: docx-build not available"
         vale --version 2>/dev/null || echo "INFO: vale not installed"
         echo "=== Workspace ready ==="
-      workingDir: /projects
+      workingDir: /home/user
 
   # Build all DOCX documents from a content repo
   - id: build-all-docs
