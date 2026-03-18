@@ -293,7 +293,7 @@ def build_cover_page(doc, meta: dict, logo_path: str | None):
 
     if logo_path and os.path.isfile(logo_path):
         run = logo_para.add_run()
-        run.add_picture(logo_path, width=Inches(2.2))
+        run.add_picture(logo_path, width=Inches(3.3))
     else:
         # Fallback: org name as styled text when no logo file is provided
         run = logo_para.add_run(ORG_NAME)
@@ -302,10 +302,9 @@ def build_cover_page(doc, meta: dict, logo_path: str | None):
         run.font.size = Pt(14)
         set_run_color(run, BLUE_DARK)
 
-    # Rule under logo
-    rule_para = doc.add_paragraph()
-    para_spacing(rule_para, before=60, after=0)
-    set_paragraph_border_bottom(rule_para, color="1F4E79", sz=6)
+    # Spacer after logo (no rule — clean layout)
+    spacer_para = doc.add_paragraph()
+    para_spacing(spacer_para, before=60, after=0)
 
     # ── Vertical spacer: push title toward vertical center ────────────────────
     for _ in range(10):

@@ -1,0 +1,21 @@
+# Rule ID: LANG-003
+# Severity: Suggestion
+# Flags wordy filler constructions that reduce directness.
+extends: existence
+message: "Remove or rephrase filler construction '%s'."
+level: suggestion
+ignorecase: true
+tokens:
+  - 'in order to'
+  - 'it is important to note that'
+  - 'it should be noted that'
+  - 'as mentioned previously'
+  - 'as mentioned above'
+  - 'as mentioned earlier'
+  - 'basically'
+  - 'essentially'
+  - 'simply put'
+  - 'it is worth noting that'
+  - 'it is worth mentioning that'
+  - 'needless to say'
+  - 'as a matter of fact'

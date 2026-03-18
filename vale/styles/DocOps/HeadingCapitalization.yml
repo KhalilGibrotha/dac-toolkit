@@ -1,0 +1,9 @@
+# Rule ID: STRUCT-003
+# Severity: Warning
+# Flags headings not using title case (Chicago style).
+extends: capitalization
+message: "Use title case for headings: '%s'."
+level: warning
+scope: heading
+match: $title
+style: Chicago

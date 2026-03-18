@@ -9,23 +9,38 @@ FROM registry.access.redhat.com/ubi9/python-312:latest
 
 USER 0
 
+# ── Disable subscription-only repos (allows building outside RHEL/OpenShift) ─
+# The UBI9 base ships with both free UBI repos and subscription-gated RHEL repos.
+# Outside a subscribed host the RHEL repos 403, so we disable them. The free
+# ubi-9-* repos provide everything we need. Inside OpenShift (where the host IS
+# subscribed) both repo sets work, so this is safe either way.
+RUN dnf config-manager --set-disabled rhel-9-for-x86_64-appstream-rpms \
+                                      rhel-9-for-x86_64-baseos-rpms 2>/dev/null; \
+    true
+
 # ── System dependencies for Chromium (Puppeteer) and Pandoc ──────────────────
 RUN dnf install -y --nodocs \
     # Chromium runtime libraries
     nss atk at-spi2-atk cups-libs libdrm \
     libXcomposite libXdamage libXrandr mesa-libgbm pango \
     cairo alsa-lib libxshmfence libxkbcommon \
-    liberation-fonts \
-    # Pandoc
-    pandoc \
+    # Git and GitHub CLI
+    git \
     # Utilities
     jq \
+    && dnf install -y --nodocs https://github.com/cli/cli/releases/download/v2.67.0/gh_2.67.0_linux_amd64.rpm \
     && dnf clean all
 
-# ── Node.js 20 LTS ──────────────────────────────────────────────────────────
-RUN dnf module enable -y nodejs:20 \
-    && dnf install -y --nodocs nodejs npm \
-    && dnf clean all
+# ── Pandoc (direct binary — not available in free UBI repos) ─────────────────
+ARG PANDOC_VERSION=3.6.4
+RUN curl -fsSL "https://github.com/jgm/pandoc/releases/download/${PANDOC_VERSION}/pandoc-${PANDOC_VERSION}-linux-amd64.tar.gz" \
+    | tar xz --strip-components=2 -C /usr/local/bin "pandoc-${PANDOC_VERSION}/bin/pandoc"
+
+# ── Node.js ──────────────────────────────────────────────────────────────────
+# The UBI9 python-312 base image includes Node.js (22.x) from the appstream
+# module. This is sufficient for mmdc/mermaid-cli. No additional install needed.
+# If Node is missing in a future base image, uncomment:
+#   RUN dnf module enable -y nodejs:22 && dnf install -y --nodocs nodejs npm && dnf clean all
 
 # ── Mermaid CLI (mmdc) — installs Puppeteer + bundled Chromium ───────────────
 ENV PUPPETEER_CACHE_DIR=/opt/puppeteer-cache

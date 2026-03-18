@@ -1,0 +1,11 @@
+# Rule ID: LANG-004 (supplement)
+# Severity: Error
+# Flags "master/slave" compound references that ConsciousLanguage.yml may miss.
+extends: existence
+message: "Avoid non-inclusive term '%s'. Use 'primary/secondary', 'leader/follower', or 'main/replica' instead."
+level: error
+ignorecase: true
+tokens:
+  - 'master/slave'
+  - 'master slave'
+  - 'master-slave'
