@@ -28,15 +28,19 @@ projects:
 # ── Components ───────────────────────────────────────────────────────────────
 components:
 
-  # Development container — custom image with all tools pre-baked:
-  #   mmdc (mermaid-cli), Vale, Pandoc, gh CLI, Python deps
+  # Development container.
   #
-  # To revert to the generic UDI (no mmdc/Vale), change image to:
-  #   image: registry.redhat.io/devspaces/udi-rhel8:latest
+  # Default: Red Hat Universal Developer Image (UDI) — compatible with
+  # standard OpenShift Dev Spaces SCC policies. Python, pip, and Node.js
+  # are available; docx_builder installs at workspace start via postStart.
+  # mmdc and Vale are not available without the custom image.
+  #
+  # Custom image (requires cluster pull access + compatible SCC):
+  #   image: ghcr.io/khalilgibrotha/dac-toolkit:latest
   #
   - name: tools
     container:
-      image: ghcr.io/khalilgibrotha/dac-toolkit:latest
+      image: registry.redhat.io/devspaces/udi-rhel9:latest
       memoryRequest: 512Mi
       memoryLimit: 4Gi
       cpuRequest: 250m
@@ -44,10 +48,6 @@ components:
       mountSources: true
       sourceMapping: /projects
       env:
-        - name: PUPPETEER_CONFIG
-          value: /opt/puppeteer-config.json
-        - name: PUPPETEER_CACHE_DIR
-          value: /opt/puppeteer-cache
         - name: DAC_TOOLKIT_DIR
           value: /projects/dac-toolkit
       endpoints:
