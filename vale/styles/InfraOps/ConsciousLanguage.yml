@@ -1,0 +1,18 @@
+# Rule ID: LANG-004
+# Severity: Error
+# Flags non-inclusive language and suggests alternatives.
+extends: substitution
+message: "Use '%s' instead of '%s'."
+level: error
+ignorecase: true
+swap:
+  blacklist: denylist
+  blacklisted: denylisted
+  blacklisting: denylisting
+  whitelist: allowlist
+  whitelisted: allowlisted
+  whitelisting: allowlisting
+  sanity check: validation
+  sanity checks: validations
+  grandfathered: legacy
+  dummy: placeholder

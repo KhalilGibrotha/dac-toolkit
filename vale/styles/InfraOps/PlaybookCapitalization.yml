@@ -1,0 +1,10 @@
+# Rule ID: TERM-003 (partial)
+# Severity: Warning
+# Flags capitalized "Playbook" in running text (should be lowercase unless
+# preceded by "Ansible").
+extends: existence
+message: "Use lowercase 'playbook' in running text. Capitalize only in 'Ansible Playbook' for formal first reference."
+level: warning
+scope: paragraph
+tokens:
+  - '(?<!Ansible )Playbook'

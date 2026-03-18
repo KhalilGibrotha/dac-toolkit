@@ -1,0 +1,13 @@
+# Rule ID: TERM-002
+# Severity: Error
+# Flags deprecated or incorrect product names and suggests the canonical form.
+extends: substitution
+message: "Use '%s' instead of '%s'."
+level: error
+ignorecase: false
+swap:
+  Tower: Automation Controller
+  AWX: Automation Controller
+  JIRA: Jira
+  Nessus: Tenable
+  'Sat.': Satellite

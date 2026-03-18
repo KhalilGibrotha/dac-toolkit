@@ -1,0 +1,28 @@
+# Rule ID: LANG-001
+# Severity: Warning
+# Flags future tense ("will + verb") in non-roadmap prose.
+extends: existence
+message: "Avoid future tense ('%s'). Use present tense to describe how systems work."
+level: warning
+ignorecase: true
+tokens:
+  - 'will be'
+  - 'will have'
+  - 'will run'
+  - 'will execute'
+  - 'will create'
+  - 'will emit'
+  - 'will produce'
+  - 'will generate'
+  - 'will return'
+  - 'will fail'
+  - 'will send'
+  - 'will receive'
+  - 'will trigger'
+  - 'will start'
+  - 'will stop'
+  - 'will process'
+  - 'will update'
+  - 'will delete'
+  - 'will deploy'
+  - 'will configure'

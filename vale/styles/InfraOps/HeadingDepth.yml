@@ -1,0 +1,9 @@
+# Rule ID: STRUCT-002 (partial)
+# Severity: Error
+# Flags headings at H4 (####) or deeper.
+extends: existence
+message: "Do not use heading level 4 or deeper. Restructure the section or extract content into a separate document."
+level: error
+scope: heading.h4
+tokens:
+  - '.+'

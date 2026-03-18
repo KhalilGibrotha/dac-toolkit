@@ -1,0 +1,9 @@
+# Rule ID: CONTENT-002 (partial)
+# Severity: Warning
+# Flags "shall" in governance/policy language. Use "must", "should", or "may" instead.
+extends: existence
+message: "Do not use 'shall'. Use 'must' (mandatory), 'should' (recommended), or 'may' (optional)."
+level: warning
+ignorecase: true
+tokens:
+  - 'shall'
