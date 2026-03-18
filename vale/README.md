@@ -1,7 +1,8 @@
-# Vale Styles — InfraOps
+# Vale Styles — DocOps
 
-Custom Vale rules for Infrastructure & Operations documentation, implementing the
-[I&O Documentation Style Guide](https://github.com/KhalilGibrotha/architecture-docs).
+Custom Vale rules for technical documentation. The `DocOps` style package
+enforces consistent structure, language, and terminology standards in
+Markdown-based documentation repositories.
 
 ## Rules
 
@@ -9,7 +10,7 @@ Custom Vale rules for Infrastructure & Operations documentation, implementing th
 |---|---|---|---|
 | `ConsciousLanguage.yml` | LANG-004 | error | Non-inclusive terms (blacklist, whitelist, etc.) |
 | `MasterSlave.yml` | LANG-004 | error | master/slave compound references |
-| `DeprecatedProductNames.yml` | TERM-002 | error | Tower, AWX, JIRA, Nessus → canonical names |
+| `DeprecatedProductNames.yml` | TERM-002 | error | Deprecated product names (Tower, AWX, JIRA, Nessus) |
 | `HeadingDepth.yml` | STRUCT-002 | error | H4 or deeper headings |
 | `HeadingCapitalization.yml` | STRUCT-003 | warning | Headings not in title case |
 | `FutureTense.yml` | LANG-001 | warning | "will + verb" in non-roadmap prose |
@@ -19,15 +20,22 @@ Custom Vale rules for Infrastructure & Operations documentation, implementing th
 
 ## Usage
 
-Content repositories (e.g., `architecture-docs`) reference these styles in their `.vale.ini`:
+Copy the `DocOps/` folder into your content repo's `.vale/styles/` directory,
+then reference it in `.vale.ini`:
 
 ```ini
 StylesPath = .vale/styles
 MinAlertLevel = suggestion
 
 [*.md]
-BasedOnStyles = InfraOps, RedHat, write-good
+BasedOnStyles = DocOps, RedHat, write-good
 ```
 
-Copy the `InfraOps/` folder into your content repo's `.vale/styles/` directory, or
-symlink it during Dev Spaces workspace setup.
+## Customizing for Your Environment
+
+`DeprecatedProductNames.yml` ships with examples for Red Hat platform tooling
+(Tower, AWX) and common SaaS products (JIRA, Nessus). Extend or replace the
+`swap` map with your own canonical product names.
+
+`PlaybookCapitalization.yml` is Ansible-specific. Remove it if your stack
+does not use Ansible.

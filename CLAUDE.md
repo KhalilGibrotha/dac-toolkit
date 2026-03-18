@@ -4,10 +4,9 @@ This is the public Documentation-as-Code toolkit. It provides the rendering engi
 
 ## Related Repos
 
-- **Content repo (private):** `C:\Users\alexg\OneDrive\Documents\SECU_Document_Automation` (architecture-docs)
-- **Obsidian vault:** `C:\Users\alexg\OneDrive\Documents\lovelace`
-
-The content repo has its own CLAUDE.md with full authoring conventions (Diátaxis framework, front matter requirements, style guide).
+This toolkit is designed to work alongside a private content repo and optionally
+a knowledge-base vault. Each content repo has its own CLAUDE.md with authoring
+conventions (document model, front matter requirements, style guide).
 
 ## This Repo Contains
 
