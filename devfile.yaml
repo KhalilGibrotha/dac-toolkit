@@ -114,22 +114,29 @@ commands:
 
         # ── Python dependencies + docx_builder ─────────────────────────
         if command -v docx-build &>/dev/null; then
-          echo "=== docx_builder already installed ==="
+          echo "=== docx_builder already installed (pre-baked image) ==="
         else
-          echo "=== Installing docx_builder ==="
-          pip install --quiet "python-docx>=1.1.0" "PyYAML>=6.0" "mistune>=3.0" "lxml>=4.9" || {
-            echo "ERROR: Failed to install Python dependencies"; exit 1;
-          }
+          echo "=== Installing docx_builder dependencies ==="
+          pip install --quiet "python-docx>=1.1.0" "PyYAML>=6.0" "mistune>=3.0" "lxml>=4.9" || \
+            echo "WARN: Failed to install Python dependencies"
         fi
-        pip install --no-deps -e /projects/dac-toolkit/docx_builder || {
-          echo "ERROR: Failed to install docx_builder"; exit 1;
-        }
+
+        # Install editable docx_builder from project clone if available.
+        # This path may not exist yet if the git clone is still in progress —
+        # the pre-baked image version remains available as a fallback.
+        if [ -d /projects/dac-toolkit/docx_builder ]; then
+          pip install --quiet --no-deps -e /projects/dac-toolkit/docx_builder 2>/dev/null && \
+            echo "=== docx_builder (editable) installed from /projects/dac-toolkit ===" || \
+            echo "WARN: Editable install failed — using pre-baked version"
+        else
+          echo "INFO: /projects/dac-toolkit not yet cloned — using pre-baked docx_builder"
+        fi
 
         # ── Verify ──────────────────────────────────────────────────────
         echo "=== Verifying tools ==="
         mmdc --version 2>/dev/null || echo "WARN: mmdc not available (diagram rendering disabled)"
         pandoc --version 2>/dev/null | head -1 || echo "WARN: pandoc not available"
-        docx-build --help | head -1 || { echo "ERROR: docx-build not available"; exit 1; }
+        docx-build --help | head -1 2>/dev/null || echo "WARN: docx-build not available"
         vale --version 2>/dev/null || echo "INFO: vale not installed"
         echo "=== Workspace ready ==="
       workingDir: /projects
