@@ -42,7 +42,7 @@ audience:
 
 ---
 
-## 1. Purpose & Impact
+## Purpose & Impact
 
 _Understand the goal before touching technology._
 
@@ -55,7 +55,7 @@ _Understand the goal before touching technology._
 
 ---
 
-## 2. Workflow Breakdown
+## Workflow Breakdown
 
 ### Source
 
@@ -90,7 +90,7 @@ _Understand the goal before touching technology._
 
 ---
 
-## 3. Trigger & Frequency
+## Trigger & Frequency
 
 - [ ] How often should the automation run? _(daily, weekly, on-demand)_
 - [ ] Is it event-driven or scheduled?
@@ -100,7 +100,7 @@ _Understand the goal before touching technology._
 
 ---
 
-## 4. Validation & Error Handling
+## Validation & Error Handling
 
 - [ ] How do we confirm the output data is accurate?
 - [ ] Should we validate schema, row count, or specific fields?
@@ -112,7 +112,7 @@ _Understand the goal before touching technology._
 
 ---
 
-## 5. Ansible Integration Points
+## Ansible Integration Points
 
 - [ ] Will the automation run via script, command module, or an Ansible role?
 - [ ] Should we build a custom Execution Environment with dependencies?
@@ -123,7 +123,7 @@ _Understand the goal before touching technology._
 
 ---
 
-## 6. Documentation & Traceability
+## Documentation & Traceability
 
 - [ ] Should we create a spec sheet or impact log for this automation?
 - [ ] What naming conventions or folder structures apply?

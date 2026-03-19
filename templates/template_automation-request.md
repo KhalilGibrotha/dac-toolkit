@@ -108,8 +108,8 @@ align with an approved category._
 _What must be true for this automation to be considered complete?
 Write criteria that are independently verifiable._
 
-- [ ]
-- [ ]
+- [ ] *A verifiable acceptance criterion, e.g. "Job runs successfully against test inventory"*
+- [ ] *Another verifiable criterion, e.g. "Splunk index receives job completion event"*
 - [ ]
 
 ### Non-Functional Requirements
@@ -168,8 +168,9 @@ _Captured at intake, validated post-implementation._
 
 _Required before backlog refinement. Manager must sign off on scope and priority._
 
-- [ ] Manager: _______________
-- [ ] Date: _______________
+- [ ] Approved
+**Manager:** _______________
+**Date:** _______________
 
 ---
 
