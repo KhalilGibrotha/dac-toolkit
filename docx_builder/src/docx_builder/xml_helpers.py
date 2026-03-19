@@ -11,6 +11,7 @@ Violating these orders causes Word to silently drop formatting or
 Summary of known constraints:
   - tcPr:  tcBorders must appear BEFORE w:shd
   - tblPr: tblBorders must appear BEFORE w:tblLook
+  - pPr:   w:keepNext must appear before w:pBdr, w:spacing, and w:ind
   - pPr:   w:pBdr must appear before w:spacing and w:ind
   - pPr:   w:tabs must appear before w:spacing and w:ind
 
@@ -103,6 +104,36 @@ def set_col_width(table, col_idx: int, width_inches: float):
     """Force a specific column to the given width (overrides table auto-fit)."""
     for row in table.rows:
         row.cells[col_idx].width = Inches(width_inches)
+
+
+def set_row_cant_split(row) -> None:
+    """
+    Prevent a table row from breaking across pages.
+
+    Sets <w:cantSplit/> in the row's <w:trPr>. When applied to every row in a
+    table, no single row will be split by a page break. Combined with
+    set_para_keep_next() on cell paragraphs, this keeps small tables together
+    on one page.
+    """
+    trPr = row._tr.get_or_add_trPr()
+    if trPr.find(qn('w:cantSplit')) is None:
+        cant_split = OxmlElement('w:cantSplit')
+        trPr.append(cant_split)
+
+
+def set_para_keep_next(para) -> None:
+    """
+    Set <w:keepNext/> on a paragraph so Word keeps it on the same page as the
+    following content.
+
+    In the OOXML pPr schema, keepNext appears before pBdr, spacing, and ind —
+    insert at index 0 to satisfy schema ordering. Idempotent: does nothing if
+    keepNext is already present.
+    """
+    pPr = para._p.get_or_add_pPr()
+    if pPr.find(qn('w:keepNext')) is None:
+        keep_next = OxmlElement('w:keepNext')
+        pPr.insert(0, keep_next)
 
 
 # ── Paragraph / run XML helpers ───────────────────────────────────────────────
