@@ -445,13 +445,13 @@ def render_md_table(doc, table_data: dict) -> None:
     #      pass, causing Word to push the whole table to the next page if it
     #      does not fit in the remaining space. If the table exceeds a full
     #      page, Word breaks it normally (keepNext is advisory, not absolute).
-    all_rows   = list(table.rows)
+    all_rows   = table.rows
     n_rows     = len(all_rows)
     for r_idx, row in enumerate(all_rows):
         set_row_cant_split(row)
         is_last_row = (r_idx == n_rows - 1)
         for c_idx, cell in enumerate(row.cells):
-            is_last_cell = is_last_row and (c_idx == len(row.cells) - 1)
+            is_last_cell = is_last_row and (c_idx == n_cols - 1)
             if not is_last_cell:
                 for para in cell.paragraphs:
                     set_para_keep_next(para)
