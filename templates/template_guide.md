@@ -10,8 +10,7 @@ date: "YYYY-MM-DD"
 author: "First Last"
 audience:
   - "[Primary audience, e.g. New team members / Platform engineers]"
-related_docs:
-  - ""
+related_docs: []
 revision_history:
   - version: "0.1"
     date: "YYYY-MM-DD"
@@ -128,11 +127,11 @@ _Brief paragraph: what this stage does and how it connects to the previous one._
 
 ### Steps
 
-4. _Do this._
+1. _Do this._
 
-5. _Do this._
+2. _Do this._
 
-6. _Verify: [Expected outcome.]_
+3. _Verify: [Expected outcome.]_
 
 ---
 
@@ -142,9 +141,9 @@ _Brief paragraph._
 
 ### Steps
 
-7. _Do this._
+1. _Do this._
 
-8. _Verify: [Expected outcome.]_
+2. _Verify: [Expected outcome.]_
 
 ---
 

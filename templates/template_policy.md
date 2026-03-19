@@ -12,8 +12,7 @@ audience:
   - "Infrastructure Architecture"
   - "Operations"
   - "Security Architecture"
-related_docs:
-  - ""
+related_docs: []
 revision_history:
   - version: "0.1"
     date: "YYYY-MM-DD"
