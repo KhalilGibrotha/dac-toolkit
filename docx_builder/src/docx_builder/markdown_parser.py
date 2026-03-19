@@ -41,10 +41,12 @@ from docx.enum.table import WD_TABLE_ALIGNMENT
 from docx.shared import RGBColor
 
 from .constants import BLUE_LINK, BLACK, FONT_BODY, GRAY_TEXT
+from .diagrams import DIAGRAM_DEFAULT_WIDTH_IN
 from .xml_helpers import (
     set_run_color, para_spacing,
     set_cell_bg, set_cell_borders, set_table_border,
     set_paragraph_border_bottom,
+    set_row_cant_split, set_para_keep_next,
 )
 from .styles import apply_heading_style
 from .metadata import HeadingNumberer
@@ -432,5 +434,26 @@ def render_md_table(doc, table_data: dict) -> None:
             run.font.name = FONT_BODY
             run.font.size = Pt(10)
             set_run_color(run, BLACK)
+
+    # Keep the table together on one page unless it is too large to fit.
+    #
+    # Strategy:
+    #   1. cantSplit on every row — prevents any row from being split by a
+    #      page break on its own.
+    #   2. keepNext on all cell paragraphs except the very last cell — this
+    #      chains every row to the next through Word's keep-with-next layout
+    #      pass, causing Word to push the whole table to the next page if it
+    #      does not fit in the remaining space. If the table exceeds a full
+    #      page, Word breaks it normally (keepNext is advisory, not absolute).
+    all_rows   = table.rows
+    n_rows     = len(all_rows)
+    for r_idx, row in enumerate(all_rows):
+        set_row_cant_split(row)
+        is_last_row = (r_idx == n_rows - 1)
+        for c_idx, cell in enumerate(row.cells):
+            is_last_cell = is_last_row and (c_idx == n_cols - 1)
+            if not is_last_cell:
+                for para in cell.paragraphs:
+                    set_para_keep_next(para)
 
     doc.add_paragraph()   # spacer after table
