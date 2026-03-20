@@ -18,8 +18,11 @@ audience:
 > **Document type:** `request` | **Diátaxis:** — (intake artifact)
 >
 > An Automation Request captures a need for new or enhanced automation in enough
-> detail to create a Jira Story or Epic. The requestor fills this out; the
-> automation engineer does not complete it on their behalf.
+> detail to create a Jira Story or Epic. The **requestor** fills out the
+> non-technical sections; the automation engineer facilitates but does not
+> complete it on their behalf. If the requestor cannot answer the Technical
+> Scope Assessment, Architecture completes the technical sections after a
+> scoping session.
 >
 > **Story vs. Epic:** If the work can be delivered in a single sprint and has one
 > clear outcome, create a Story. If it spans multiple sprints, has multiple
@@ -80,9 +83,10 @@ _Answer this question before proceeding to the technical sections below._
 > section below?**
 
 - [ ] **Yes** — Continue to Approved Scope and Requirements below.
-- [ ] **No** — Stop here. Submit this request with only the Background &
-  Business Justification completed. Architecture will conduct a scoping
-  session before the technical sections are filled in.
+- [ ] **No** — Stop here. Complete only the non-technical sections above
+  (Request Type, Requestor, Background & Business Justification), then submit.
+  Architecture will conduct a scoping session before the technical sections
+  are filled in.
 
   > **What happens next:** An architecture review will be scheduled to assess
   > technical scope, integration requirements, and configuration impact. The
@@ -135,8 +139,8 @@ Write criteria that are independently verifiable._
 
 _Performance, security, compliance, or reliability requirements._
 
--
--
+- _e.g. Job must complete within 30 minutes for standard inventory sizes_
+- _e.g. No plaintext credentials in job output or logs_
 
 ### Integration Requirements
 
@@ -147,7 +151,7 @@ current state of that integration._
 **Integration maturity key:**
 - **Established** — Standard integration patterns exist; engineer can reference prior work
 - **Limited** — Partial capability only; may require additional discovery or custom development
-- **Not Available** — No current integration exists; requires architecture review before implementation
+- **Not Available** — No current integration exists; requires architecture review before backlog entry
 
 > **Note:** Replace the system categories below with your organization's tool suite.
 
@@ -161,7 +165,7 @@ current state of that integration._
 | OS Lifecycle / Content Management | ☐ Yes ☐ No | ☐ Read ☐ Write ☐ Both | | |
 | Vulnerability / Compliance Scanning | ☐ Yes ☐ No | ☐ Read ☐ Write ☐ Both | | |
 | Identity / Directory Services | ☐ Yes ☐ No | ☐ Read ☐ Write ☐ Both | | |
-| Source Control / CI-CD | ☐ Yes ☐ No | ☐ Read ☐ Write ☐ Both | | |
+| Source Control / CI/CD | ☐ Yes ☐ No | ☐ Read ☐ Write ☐ Both | | |
 | Secrets / Credential Management | ☐ Yes ☐ No | ☐ Read ☐ Write ☐ Both | | |
 | Other: _______________ | ☐ Yes ☐ No | ☐ Read ☐ Write ☐ Both | | |
 
@@ -193,12 +197,12 @@ checked domain must align with the governing standard before implementation.
 | Network / Firewall rules | ☐ Yes ☐ No ☐ Unknown | _[Network change process]_ |
 | Certificate / Key management | ☐ Yes ☐ No ☐ Unknown | _[Key management standard]_ |
 | Backup / Recovery configuration | ☐ Yes ☐ No ☐ Unknown | _[Backup policy]_ |
-| Change management classification | ☐ Standard ☐ Normal ☐ Emergency | _[Change management policy]_ |
+| Change management classification | ☐ Yes ☐ No ☐ Unknown — if Yes: ☐ Standard ☐ Normal ☐ Emergency | _[Change management policy]_ |
 
-> **Any "Yes" response in this section** indicates a configuration side-effect
-> that must be reviewed for standard alignment before the implementation sprint.
-> The engineer assigned to this request is responsible for confirming alignment
-> and documenting exceptions.
+> **Any "Yes" or classification response in this section** indicates a
+> configuration side-effect that must be reviewed for standard alignment before
+> the implementation sprint. The engineer assigned to this request is responsible
+> for confirming alignment and documenting exceptions.
 
 ---
 
@@ -215,8 +219,8 @@ _Technical or organizational constraints the automation must work within._
 
 _How will success be measured post-implementation? Write observable, measurable outcomes._
 
--
--
+- _e.g. Manual effort for this task reduced from X hours/week to near-zero_
+- _e.g. Job runs without error against full production inventory_
 
 ---
 
