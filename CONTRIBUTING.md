@@ -4,7 +4,7 @@ dac-toolkit is a public, MIT-licensed documentation toolchain. Contributions are
 
 ## Branch Model
 
-```
+```text
 main        — stable, tagged releases only
 develop     — integration branch; all PRs target here
 feature/*   — short-lived feature branches from develop
@@ -12,6 +12,8 @@ fix/*       — short-lived fix branches from develop
 ```
 
 Do not push directly to `main`. All changes flow through `develop` via pull request.
+
+> **Note:** The `devfile.yaml` in this repo targets `revision: main` for workspace users who want a stable environment. As a contributor, clone the repo normally and branch from `develop` as described in Getting Started below.
 
 ## Getting Started
 
@@ -33,7 +35,7 @@ git checkout -b feature/your-feature-name
 
 Use the imperative mood and a concise subject line:
 
-```
+```text
 Fix keepNext insertion order when pStyle is present
 Add template_standard.md to flat template library
 Update devfile to use UDI base image
