@@ -21,6 +21,15 @@
 #   "This pattern describes how to assign a network zone to a new server request."
 #   "This standard establishes mandatory TLS configuration requirements."
 #
+# Implementation note: this rule uses 'occurrence' with min: 1 to check that
+# the purpose statement pattern appears at least once in the document. This
+# catches the most common violation — a document with no purpose statement at
+# all — but does NOT enforce that the purpose statement is the first paragraph
+# after the H1. Positional enforcement (checking placement, not just presence)
+# requires Vale's 'script' rule type with Tengo. That is left for a future
+# enhancement. In practice, documents that contain the pattern but not as the
+# opening sentence are caught in human review (STRUCT-007, manual).
+#
 # Reuse note: this rule is generic — it does not reference org-specific
 # terminology. It can be adopted by any team using the Diátaxis or Red Hat
 # modular docs model.
