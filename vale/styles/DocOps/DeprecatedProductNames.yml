@@ -1,6 +1,12 @@
 # Rule ID: TERM-002
 # Severity: Error
 # Flags deprecated or incorrect product names and suggests the canonical form.
+#
+# Reuse note: STACK-SPECIFIC — the substitutions below reflect the Red Hat /
+# Ansible / ITSM product set used by this organization. Teams adopting this
+# rule set from dac-toolkit should replace these mappings with their own
+# canonical product name list. Generic rules (LANG-*, STRUCT-*) require no
+# changes for reuse.
 extends: substitution
 message: "Use '%s' instead of '%s'."
 level: error

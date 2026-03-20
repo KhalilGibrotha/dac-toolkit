@@ -2,6 +2,10 @@
 # Severity: Warning
 # Flags capitalized "Playbook" in running text (should be lowercase unless
 # preceded by "Ansible").
+#
+# Reuse note: STACK-SPECIFIC — this rule assumes an Ansible-based environment
+# where "Ansible Playbook" is the formal term and "playbook" is lowercase in
+# all other contexts. Teams not using Ansible should remove or replace this rule.
 extends: existence
 message: "Use lowercase 'playbook' in running text. Capitalize only in 'Ansible Playbook' for formal first reference."
 level: warning

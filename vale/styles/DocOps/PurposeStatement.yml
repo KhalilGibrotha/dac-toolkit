@@ -1,0 +1,32 @@
+# Rule ID: STRUCT-001
+# Severity: Suggestion
+#
+# Every document must open with a purpose statement — a single sentence
+# immediately after the H1 title that declares the document's scope.
+#
+# Required pattern:
+#   "This [type] [verb] X."
+#
+# Where [type] is one of:
+#   concept, procedure, reference, tutorial, guide, pattern, checklist,
+#   runbook, standard, policy, overview, document, architecture, analysis
+#
+# And [verb] is one of:
+#   explains, describes, describes how to, documents, walks through,
+#   establishes, catalogs, tracks, provides, outlines, defines,
+#   references, lists, captures, presents
+#
+# Examples:
+#   "This reference catalogs every data field used across SEO automation domains."
+#   "This pattern describes how to assign a network zone to a new server request."
+#   "This standard establishes mandatory TLS configuration requirements."
+#
+# Reuse note: this rule is generic — it does not reference org-specific
+# terminology. It can be adopted by any team using the Diátaxis or Red Hat
+# modular docs model.
+
+extends: occurrence
+message: "Add a purpose statement as the first sentence after the title. Pattern: 'This [type] [explains/describes/documents/establishes] X.'"
+level: suggestion
+token: 'This (concept|procedure|reference|tutorial|guide|pattern|checklist|runbook|standard|policy|overview|document|architecture|analysis)\s+(explains|describes how to|describes|documents|walks through|establishes|catalogs|tracks|provides|outlines|defines|references|lists|captures|presents)'
+min: 1
