@@ -8,7 +8,11 @@ dict and leaves the full text as body content.
 Expected front matter keys (all optional, defaults applied at render time):
     title           : str   — document title; supports \\n for multi-line
     department      : str   — department or org unit
-    status          : str   — "Draft" or "Final"
+    status          : str   — "Draft" | "In Review" | "Accepted" | "Rejected" | "Retired"
+                              | "Proposed" | "Informational"
+                              Only "Draft" produces a DRAFT watermark in DOCX output.
+                              "Informational" is for meeting notes and informal captures
+                              with no review cycle.
     version         : str   — e.g. "1.0"
     date            : str   — e.g. "2026-03-13"
     author          : str   — primary author name

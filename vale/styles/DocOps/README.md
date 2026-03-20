@@ -7,13 +7,13 @@ Designed for use with the Diátaxis + Red Hat modular docs blended model.
 
 | File | Rule ID | Severity | Generic? | Description |
 |---|---|---|---|---|
-| `PurposeStatement.yml` | STRUCT-001 | Suggestion | ✅ Yes | Every document must have a purpose statement after the H1 |
+| `PurposeStatement.yml` | STRUCT-006 | Suggestion | ✅ Yes | Every document must have a purpose statement after the H1 |
 | `HeadingDepth.yml` | STRUCT-002 | Error | ✅ Yes | No headings deeper than H3 |
 | `HeadingCapitalization.yml` | STRUCT-003 | Warning | ✅ Yes | Title case for all headings (Chicago style) |
 | `FutureTense.yml` | LANG-001 | Warning | ✅ Yes | Avoid future tense in descriptive prose |
 | `FillerPhrases.yml` | LANG-003 | Suggestion | ✅ Yes | Remove wordy filler constructions |
 | `ConsciousLanguage.yml` | LANG-004 | Error | ✅ Yes | Flag non-inclusive language |
-| `MasterSlave.yml` | LANG-004 | Error | ✅ Yes | Flag master/slave compound terms |
+| `MasterSlave.yml` | LANG-004 (supplement) | Error | ✅ Yes | Flag master/slave compound terms — supplements ConsciousLanguage.yml for multi-word patterns |
 | `NoShall.yml` | CONTENT-002 | Warning | ✅ Yes | Avoid lowercase "shall" in prose (RFC 2119 uppercase SHALL is exempt) |
 | `DeprecatedProductNames.yml` | TERM-002 | Error | ⚠️ Stack-specific | Flag deprecated product names — **customize swap list for your environment** |
 | `PlaybookCapitalization.yml` | TERM-003 | Warning | ⚠️ Stack-specific | Ansible-specific capitalization rule — **remove if not using Ansible** |

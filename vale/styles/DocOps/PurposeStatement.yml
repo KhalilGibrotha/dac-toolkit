@@ -41,7 +41,7 @@
 # modular docs model.
 
 extends: occurrence
-message: "Add a purpose statement as the first sentence after the title. Pattern: 'This [type] [explains/describes/documents/establishes] X.'"
+message: "Add a purpose statement immediately after the title: 'This [type] [verb] X.' Accepted verbs: explains, describes, describes how to, documents, walks through, establishes, catalogs, tracks, provides, outlines, defines, references, lists, captures, presents."
 level: suggestion
 token: 'This (concept|procedure|reference|tutorial|guide|pattern|checklist|runbook|standard|policy|overview|document|architecture|analysis)\s+(explains|describes how to|describes|documents|walks through|establishes|catalogs|tracks|provides|outlines|defines|references|lists|captures|presents)'
 min: 1
