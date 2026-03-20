@@ -1,0 +1,47 @@
+# Rule ID: STRUCT-006
+# Severity: Suggestion
+#
+# Every document must open with a purpose statement — a single sentence
+# immediately after the H1 title that declares the document's scope.
+#
+# Required pattern:
+#   "This [type] [verb] X."
+#
+# Where [type] is one of:
+#   concept, procedure, reference, tutorial, guide, pattern, checklist,
+#   runbook, standard, policy, overview, document, architecture, analysis
+#
+# And [verb] is one of:
+#   explains, describes, describes how to, documents, walks through,
+#   establishes, catalogs, tracks, provides, outlines, defines,
+#   references, lists, captures, presents
+#
+# Examples:
+#   "This reference catalogs every data field used across SEO automation domains."
+#   "This pattern describes how to assign a network zone to a new server request."
+#   "This standard establishes mandatory TLS configuration requirements."
+#
+# Implementation note: this rule uses 'occurrence' with min: 1 to check that
+# the purpose statement pattern appears at least once in the document. This
+# catches the most common violation — a document with no purpose statement at
+# all — but does NOT enforce that the purpose statement is the first paragraph
+# after the H1. Positional enforcement (checking placement, not just presence)
+# requires Vale's 'script' rule type with Tengo. That is left for a future
+# enhancement. In practice, documents that contain the pattern but not as the
+# opening sentence are caught in human review (STRUCT-007, manual).
+#
+# Note on 'extends: existence' with 'scope: p:first-of-type': Vale scopes are
+# not CSS selectors. The valid Vale scopes are: heading, sentence, paragraph,
+# code, raw, summary, link, alt, caption, table.header, table.cell, list.
+# The 'p:first-of-type' syntax is not valid Vale scope syntax and will silently
+# fail. Positional enforcement of "first paragraph" requires a Tengo script rule.
+#
+# Reuse note: this rule is generic — it does not reference org-specific
+# terminology. It can be adopted by any team using the Diátaxis or Red Hat
+# modular docs model.
+
+extends: occurrence
+message: "Add a purpose statement as the first sentence after the title. Pattern: 'This [type] [explains/describes/documents/establishes] X.'"
+level: suggestion
+token: 'This (concept|procedure|reference|tutorial|guide|pattern|checklist|runbook|standard|policy|overview|document|architecture|analysis)\s+(explains|describes how to|describes|documents|walks through|establishes|catalogs|tracks|provides|outlines|defines|references|lists|captures|presents)'
+min: 1
