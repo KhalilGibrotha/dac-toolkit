@@ -30,6 +30,12 @@
 # enhancement. In practice, documents that contain the pattern but not as the
 # opening sentence are caught in human review (STRUCT-007, manual).
 #
+# Note on 'extends: existence' with 'scope: p:first-of-type': Vale scopes are
+# not CSS selectors. The valid Vale scopes are: heading, sentence, paragraph,
+# code, raw, summary, link, alt, caption, table.header, table.cell, list.
+# The 'p:first-of-type' syntax is not valid Vale scope syntax and will silently
+# fail. Positional enforcement of "first paragraph" requires a Tengo script rule.
+#
 # Reuse note: this rule is generic — it does not reference org-specific
 # terminology. It can be adopted by any team using the Diátaxis or Red Hat
 # modular docs model.
