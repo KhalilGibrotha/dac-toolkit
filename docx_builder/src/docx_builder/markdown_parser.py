@@ -57,6 +57,84 @@ def _strip_html(text: str) -> str:
     return re.sub(r'<[^>]+>', '', text or '').strip()
 
 
+# ── Inline markdown renderer for table cells ─────────────────────────────────
+#
+# Table cells are extracted before mistune sees them, so inline markdown
+# (**bold**, *italic*, `code`) inside cells is never parsed by HtmlToDocx.
+# These helpers tokenize inline markdown directly and emit styled runs.
+
+_INLINE_MD_RE = re.compile(
+    r'(`[^`\n]+`)'              # group 1 — code span
+    r'|(\*\*\*[^*\n]+\*\*\*)'  # group 2 — bold + italic  ***...***
+    r'|(\*\*[^*\n]+\*\*)'      # group 3 — bold  **...**
+    r'|(__[^_\n]+__)'           # group 4 — bold  __...__
+    r'|(\*[^*\n]+\*)'          # group 5 — italic  *...*
+    r'|((?<!\w)_(?!_)[^_\n]+_(?!_)(?!\w))'  # group 6 — italic  _..._ (not __, not inside words)
+)
+
+
+def _add_cell_run(para, text, *, bold, italic, code, color, font_name, font_size):
+    """Add a single formatted run to a table-cell paragraph."""
+    if not text:
+        return
+    run            = para.add_run(text)
+    run.bold       = bold
+    run.italic     = italic
+    run.font.name  = "Courier New" if code else font_name
+    run.font.size  = font_size
+    set_run_color(run, color)
+
+
+def _render_cell_text(para, text, *, base_bold=False, color, font_name, font_size):
+    """
+    Parse inline markdown in *text* and add styled runs to *para*.
+
+    Recognised constructs:
+      ``code``             → Courier New, dark-gray, 9 pt
+      ***bold+italic***    → bold + italic
+      **bold** / __bold__  → bold
+      *italic* / _italic_  → italic
+
+    Anything not matched is emitted as a plain run with *base_bold* and
+    *color*. This function is used for both header cells (base_bold=True,
+    white color) and body cells (base_bold=False, black color).
+    """
+    pos = 0
+    for m in _INLINE_MD_RE.finditer(text):
+        # Plain text before this match
+        if m.start() > pos:
+            _add_cell_run(para, text[pos:m.start()],
+                          bold=base_bold, italic=False, code=False,
+                          color=color, font_name=font_name, font_size=font_size)
+
+        matched = m.group(0)
+        if m.group(1):                          # `code`
+            _add_cell_run(para, matched[1:-1],
+                          bold=False, italic=False, code=True,
+                          color=RGBColor(0x1F, 0x1F, 0x1F),
+                          font_name="Courier New", font_size=Pt(9))
+        elif m.group(2):                        # ***bold+italic***
+            _add_cell_run(para, matched[3:-3],
+                          bold=True, italic=True, code=False,
+                          color=color, font_name=font_name, font_size=font_size)
+        elif m.group(3) or m.group(4):         # **bold** or __bold__
+            _add_cell_run(para, matched[2:-2],
+                          bold=True, italic=False, code=False,
+                          color=color, font_name=font_name, font_size=font_size)
+        elif m.group(5) or m.group(6):         # *italic* or _italic_
+            _add_cell_run(para, matched[1:-1],
+                          bold=base_bold, italic=True, code=False,
+                          color=color, font_name=font_name, font_size=font_size)
+
+        pos = m.end()
+
+    # Trailing plain text
+    if pos < len(text):
+        _add_cell_run(para, text[pos:],
+                      bold=base_bold, italic=False, code=False,
+                      color=color, font_name=font_name, font_size=font_size)
+
+
 # ── HTML → docx walker ────────────────────────────────────────────────────────
 
 class HtmlToDocx(HTMLParser):
@@ -411,11 +489,11 @@ def render_md_table(doc, table_data: dict) -> None:
         p   = cell.paragraphs[0]
         p.alignment = alignments[i] if i < len(alignments) else WD_ALIGN_PARAGRAPH.LEFT
         para_spacing(p, before=60, after=60)
-        run = p.add_run(col_text)
-        run.bold      = True
-        run.font.name = FONT_BODY
-        run.font.size = Pt(10)
-        set_run_color(run, RGBColor(0xFF, 0xFF, 0xFF))
+        _render_cell_text(p, col_text,
+                          base_bold=True,
+                          color=RGBColor(0xFF, 0xFF, 0xFF),
+                          font_name=FONT_BODY,
+                          font_size=Pt(10))
 
     # Body rows
     for ridx, body_row in enumerate(body_rows):
@@ -430,10 +508,11 @@ def render_md_table(doc, table_data: dict) -> None:
             p.alignment = alignments[i] if i < len(alignments) else WD_ALIGN_PARAGRAPH.LEFT
             para_spacing(p, before=60, after=60)
             val = body_row[i] if i < len(body_row) else ''
-            run = p.add_run(val)
-            run.font.name = FONT_BODY
-            run.font.size = Pt(10)
-            set_run_color(run, BLACK)
+            _render_cell_text(p, val,
+                              base_bold=False,
+                              color=BLACK,
+                              font_name=FONT_BODY,
+                              font_size=Pt(10))
 
     # Keep the table together on one page unless it is too large to fit.
     #

@@ -2,7 +2,7 @@
 title: "Meeting Notes: [Topic]"
 date: "YYYY-MM-DD"
 author: "First Last"
-status: "Draft"
+status: "Informational"
 ---
 
 > **Template Note** — Delete this block before publishing.
@@ -11,6 +11,8 @@ status: "Draft"
 > type and do not require all front matter fields. Distribute promptly after the
 > meeting while context is fresh. Decisions made and action items must be captured
 > even if discussion notes are sparse.
+>
+> **Status:** `Informational` — terminal state. No review cycle. No DRAFT watermark in DOCX output.
 >
 > **Suggested location:** `notes/` or `initiatives/[name]/`
 > **File naming:** `YYYY-MM-DD_[topic-slug].md`

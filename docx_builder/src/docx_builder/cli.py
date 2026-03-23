@@ -50,7 +50,9 @@ Examples:
 YAML front matter keys:
   title           : str   — document title (use \\\\n for line breaks)
   department      : str   — department / org unit
-  status          : str   — "Draft" or "Final"
+  status          : str   — "Draft" | "In Review" | "Accepted" | "Retired" | "Proposed" | "Informational"
+                            Only "Draft" produces a watermark. "Informational" is for meeting notes
+                            and informal captures with no review cycle.
   version         : str   — e.g. "1.0"
   date            : str   — e.g. "2026-03-13"
   author          : str   — primary author

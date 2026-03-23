@@ -244,7 +244,10 @@ def build_cover_page(doc, meta: dict, logo_path: str | None):
     watermark or shift with content changes.
 
     If status == 'Draft' (case-insensitive), a diagonal DRAFT watermark
-    is added to the section header.
+    is added to the section header. All other statuses — including
+    'Informational', 'In Review', 'Accepted', 'Proposed', and 'Retired' —
+    render without a watermark. 'Informational' is the correct status for
+    meeting notes and informal captures that have no review cycle.
 
     Spacing spacers: the 10 empty-paragraph count is tuned to the reference
     document. Adjust here if the vertical balance of the title block needs

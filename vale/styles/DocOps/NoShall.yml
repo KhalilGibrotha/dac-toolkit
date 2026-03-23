@@ -1,9 +1,14 @@
 # Rule ID: CONTENT-002 (partial)
 # Severity: Warning
-# Flags "shall" in governance/policy language. Use "must", "should", or "may" instead.
+# Flags lowercase "shall" in prose writing. Use "must", "should", or "may" instead.
+#
+# Case sensitivity note: this rule is intentionally case-SENSITIVE (ignorecase: false).
+# Uppercase SHALL, SHOULD, and MAY are valid RFC 2119 requirement keywords and are
+# the correct form in documents with doc_type: standard. This rule only catches
+# lowercase "shall", which is ambiguous and non-standard in technical prose.
 extends: existence
-message: "Do not use 'shall'. Use 'must' (mandatory), 'should' (recommended), or 'may' (optional)."
+message: "Avoid 'shall' in prose. Use 'must' (mandatory), 'should' (recommended), or 'may' (optional). Exception: RFC 2119 uppercase SHALL is correct in standard documents."
 level: warning
-ignorecase: true
+ignorecase: false
 tokens:
-  - 'shall'
+  - '\bshall\b'
