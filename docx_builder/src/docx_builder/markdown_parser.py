@@ -69,7 +69,7 @@ _INLINE_MD_RE = re.compile(
     r'|(\*\*[^*\n]+\*\*)'      # group 3 — bold  **...**
     r'|(__[^_\n]+__)'           # group 4 — bold  __...__
     r'|(\*[^*\n]+\*)'          # group 5 — italic  *...*
-    r'|(_(?!_)[^_\n]+_(?!_))'  # group 6 — italic  _..._ (not __)
+    r'|((?<!\w)_(?!_)[^_\n]+_(?!_)(?!\w))'  # group 6 — italic  _..._ (not __, not inside words)
 )
 
 
@@ -92,7 +92,7 @@ def _render_cell_text(para, text, *, base_bold=False, color, font_name, font_siz
     Recognised constructs:
       ``code``             → Courier New, dark-gray, 9 pt
       ***bold+italic***    → bold + italic
-      **bold** / __bold__  → bold (inherits base_bold)
+      **bold** / __bold__  → bold
       *italic* / _italic_  → italic
 
     Anything not matched is emitted as a plain run with *base_bold* and
