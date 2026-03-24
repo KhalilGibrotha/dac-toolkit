@@ -35,10 +35,15 @@ outputs:
 runs:
   using: "docker"
   image: "docker://ghcr.io/khalilgibrotha/dac-toolkit:latest"
+  entrypoint: /bin/sh
   args:
-    - docx-build-all
-    - --config
-    - ${{ inputs.config }}
+    - -c
+    - |
+      ARGS="docx-build-all --config ${{ inputs.config }}"
+      if [ "${{ inputs.org }}" != "" ]; then ARGS="$ARGS --org ${{ inputs.org }}"; fi
+      if [ "${{ inputs.force }}" = "true" ]; then ARGS="$ARGS --force"; fi
+      if [ "${{ inputs.report-file }}" != "" ]; then ARGS="$ARGS --report-file ${{ inputs.report-file }}"; fi
+      $ARGS
 
 # ── Usage example ─────────────────────────────────────────────────────────────
 #

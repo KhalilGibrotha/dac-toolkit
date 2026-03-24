@@ -28,10 +28,19 @@ Paths in scan and exclude are resolved relative to the config file's directory.
 """
 
 import os
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Optional
 
 import yaml
+
+
+def _parse_bool(value) -> bool:
+    """Parse a YAML value as boolean, handling quoted strings like 'false'."""
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() in ('true', '1', 'yes')
+    return bool(value)
 
 
 class ConfigError(Exception):
@@ -118,10 +127,8 @@ def load_config(path: Optional[str] = None) -> BatchConfig:
         export_root = os.path.normpath(os.path.join(config_dir, str(export_root_raw)))
 
     scan_raw = raw.get('scan')
-    if not scan_raw:
-        errors.append("  - 'scan' is required and must list at least one folder")
-    elif not isinstance(scan_raw, list) or len(scan_raw) == 0:
-        errors.append("  - 'scan' must be a non-empty list of folder paths")
+    if not scan_raw or not isinstance(scan_raw, list):
+        errors.append("  - 'scan' is required and must be a non-empty list of folder paths")
     else:
         scan = [os.path.normpath(os.path.join(config_dir, str(s))) for s in scan_raw]
 
@@ -133,6 +140,8 @@ def load_config(path: Optional[str] = None) -> BatchConfig:
     # ── Optional fields ───────────────────────────────────────────────────────
 
     exclude_raw = raw.get('exclude') or []
+    if isinstance(exclude_raw, str):
+        exclude_raw = [exclude_raw]    # single string → one-element list
     exclude = [os.path.normpath(os.path.join(config_dir, str(e))) for e in exclude_raw]
 
     org_raw = raw.get('org')
@@ -148,8 +157,8 @@ def load_config(path: Optional[str] = None) -> BatchConfig:
 
     raw_opts = raw.get('options') or {}
     options = BatchOptions(
-        skip_retired=bool(raw_opts.get('skip_retired', True)),
-        skip_informational=bool(raw_opts.get('skip_informational', False)),
+        skip_retired=_parse_bool(raw_opts.get('skip_retired', True)),
+        skip_informational=_parse_bool(raw_opts.get('skip_informational', False)),
     )
 
     return BatchConfig(

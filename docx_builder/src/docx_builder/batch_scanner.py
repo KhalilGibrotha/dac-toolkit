@@ -24,7 +24,6 @@ Options applied here
 
 import os
 from dataclasses import dataclass
-from typing import Optional
 
 from .batch_config import BatchConfig
 from .metadata import parse_front_matter
@@ -78,9 +77,8 @@ def scan(config: BatchConfig) -> tuple[list[ScannedDoc], list[str]]:
     Walk config.scan paths and return (valid_docs, warnings).
 
     valid_docs — list[ScannedDoc] ready for the render pipeline, in
-                 filesystem traversal order (deterministic across platforms
-                 because os.walk is used without topdown sorting, but filenames
-                 within each directory are sorted for reproducibility).
+                 deterministic order (directories and filenames are both sorted
+                 within each level for cross-platform reproducibility).
     warnings   — list[str] of WARN/SKIP messages describing files that were
                  skipped; empty if everything was clean.
     """

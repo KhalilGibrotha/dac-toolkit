@@ -5,7 +5,7 @@ Registered in pyproject.toml as:
     docx-build-all = "docx_builder.batch_cli:main"
 
 Usage:
-    docx-build-all [--config PATH] [--dry-run] [--force] [--report-file PATH]
+    docx-build-all [--config PATH] [--org PATH] [--dry-run] [--force] [--report-file PATH]
 
 Execution flow:
     1. Load and validate config (abort with exit 2 on config error)
@@ -73,6 +73,13 @@ parent directory. See the dac-toolkit README for the config schema.
         help="Path to docx-build.yml. Defaults to searching upward from CWD.",
     )
     parser.add_argument(
+        '--org',
+        default=None,
+        metavar='PATH',
+        help="Path to org.yaml with org identity overrides. "
+             "Takes precedence over the 'org' key in docx-build.yml.",
+    )
+    parser.add_argument(
         '--dry-run',
         action='store_true',
         help="Scan and report what would be rendered; do not write any files.",
@@ -103,7 +110,7 @@ parent directory. See the dac-toolkit README for the config schema.
         try:
             os.makedirs(config.export_root, exist_ok=True)
             test_file = os.path.join(config.export_root, ".write-test")
-            with open(test_file, 'w') as f:
+            with open(test_file, 'w', encoding='utf-8') as f:
                 f.write("")
             os.remove(test_file)
         except OSError as e:
@@ -113,13 +120,18 @@ parent directory. See the dac-toolkit README for the config schema.
             )
             sys.exit(2)
 
-    # ── 3. Load org overrides ─────────────────────────────────────────────────
+    # ── 3. Load org overrides (CLI --org takes precedence over config) ────────
+    org_path = args.org or config.org
     org_overrides = None
-    if config.org:
+    if org_path:
+        org_path = os.path.abspath(org_path)
+        if not os.path.isfile(org_path):
+            print(f"Error: org file not found: {org_path}", file=sys.stderr)
+            sys.exit(2)
         try:
-            org_overrides = _load_org_yaml(config.org)
+            org_overrides = _load_org_yaml(org_path)
         except (OSError, yaml.YAMLError) as e:
-            print(f"Error: cannot load org file {config.org}: {e}", file=sys.stderr)
+            print(f"Error: cannot load org file {org_path}: {e}", file=sys.stderr)
             sys.exit(2)
 
     # ── 4. Scan ───────────────────────────────────────────────────────────────
@@ -177,7 +189,9 @@ parent directory. See the dac-toolkit README for the config schema.
         old_status     = None
         if outcome == RenderIndex.OUTCOME_MOVED and existing:
             old_status = existing.status
-            old_output_abs = existing.output
+            # Index stores paths relative to config_dir; resolve to absolute
+            old_output_abs = os.path.join(config.config_dir, existing.output) \
+                if not os.path.isabs(existing.output) else existing.output
             warn = remove_old_output(old_output_abs, doc.rel_path)
             if warn:
                 result_warnings.append(warn)
@@ -195,7 +209,9 @@ parent directory. See the dac-toolkit README for the config schema.
                 output_path=output_path,
                 org_overrides=org_overrides,
             )
-            index.update(doc.rel_path, doc.version, doc.status, output_path)
+            # Store relative path in the index for portability
+            rel_output = os.path.relpath(output_path, config.config_dir)
+            index.update(doc.rel_path, doc.version, doc.status, rel_output)
             report.add(DocResult(
                 rel_path=doc.rel_path,
                 outcome=outcome,
@@ -208,7 +224,8 @@ parent directory. See the dac-toolkit README for the config schema.
 
         except Exception as e:
             err_msg = f"{type(e).__name__}: {e}"
-            index.update(doc.rel_path, doc.version, doc.status, output_path, error=err_msg)
+            rel_output = os.path.relpath(output_path, config.config_dir)
+            index.update(doc.rel_path, doc.version, doc.status, rel_output, error=err_msg)
             report.add(DocResult(
                 rel_path=doc.rel_path,
                 outcome=RenderIndex.OUTCOME_FAILED,

@@ -20,12 +20,12 @@ Skip logic
 ──────────
   NEW            — no index entry; render and add entry
   SKIP           — version and status match entry; leave file untouched
-  RENDERED       — version changed (higher); render and update entry
+  RENDERED       — version changed; render and update entry
   MOVED+RENDERED — status changed; render to new folder, remove old file, update entry
   FAILED         — build raised an exception; update entry with error details
 
 The index is loaded once at startup and written back atomically at the end of
-the run (or after each document in --force mode, as a safety net).
+the run.
 """
 
 import os
@@ -44,7 +44,7 @@ class RenderRecord:
     version: str
     status: str
     rendered_at: str     # ISO-8601 UTC timestamp
-    output: str          # path to the rendered DOCX (relative to config_dir)
+    output: str          # path to the rendered DOCX (relative to config_dir for portability)
     error: Optional[str] = None  # set on FAILED entries
 
 
@@ -153,11 +153,13 @@ class RenderIndex:
         if rec is None:
             return self.OUTCOME_NEW, None
 
-        if force:
-            return self.OUTCOME_RENDERED, rec
-
+        # Status change always takes priority — even in force mode — so the
+        # caller knows to clean up the old output file from the previous folder.
         if rec.status != status:
             return self.OUTCOME_MOVED, rec
+
+        if force:
+            return self.OUTCOME_RENDERED, rec
 
         if rec.version != version:
             return self.OUTCOME_RENDERED, rec
