@@ -44,7 +44,7 @@ from .constants import BLUE_LINK, BLACK, FONT_BODY, GRAY_TEXT
 from .diagrams import DIAGRAM_DEFAULT_WIDTH_IN
 from .xml_helpers import (
     set_run_color, para_spacing,
-    set_cell_bg, set_cell_borders, set_table_border,
+    set_cell_bg, set_cell_borders, set_cell_margins, set_table_border,
     set_paragraph_border_bottom,
     set_row_cant_split, set_para_keep_next,
 )
@@ -486,9 +486,10 @@ def render_md_table(doc, table_data: dict) -> None:
         cell.width = Inches(col_w)
         set_cell_bg(cell, "2E75B6")
         set_cell_borders(cell, color="CCCCCC", sz=4)
+        set_cell_margins(cell)
         p   = cell.paragraphs[0]
         p.alignment = alignments[i] if i < len(alignments) else WD_ALIGN_PARAGRAPH.LEFT
-        para_spacing(p, before=60, after=60)
+        para_spacing(p, before=36, after=36)
         _render_cell_text(p, col_text,
                           base_bold=True,
                           color=RGBColor(0xFF, 0xFF, 0xFF),
@@ -504,15 +505,16 @@ def render_md_table(doc, table_data: dict) -> None:
             cell.width = Inches(col_w)
             set_cell_bg(cell, fill)
             set_cell_borders(cell, color="CCCCCC", sz=4)
+            set_cell_margins(cell)
             p   = cell.paragraphs[0]
             p.alignment = alignments[i] if i < len(alignments) else WD_ALIGN_PARAGRAPH.LEFT
-            para_spacing(p, before=60, after=60)
+            para_spacing(p, before=36, after=36)
             val = body_row[i] if i < len(body_row) else ''
             _render_cell_text(p, val,
                               base_bold=False,
                               color=BLACK,
                               font_name=FONT_BODY,
-                              font_size=Pt(10))
+                              font_size=Pt(9))
 
     # Keep the table together on one page unless it is too large to fit.
     #

@@ -63,3 +63,11 @@ COVER_MARGIN_TWIPS = 1080   # 0.75 inches
 # Twips-to-EMU conversion factor.
 # Stored as a named constant to make section.page_width = Emu(W * TWIPS_TO_EMU) readable.
 TWIPS_TO_EMU = 635
+
+# ── Table cell styling ───────────────────────────────────────────────────────
+# Internal cell padding in twips (1 pt = 20 twips).
+# Vertical margins (top/bottom) control row height; horizontal (left/right)
+# control the breathing room between border and text. Word default is 108
+# twips (~5.4 pt) for left/right. These values produce compact, scannable rows.
+TABLE_CELL_MARGIN_V = 36    # 1.8 pt — top and bottom
+TABLE_CELL_MARGIN_H = 72    # 3.6 pt — left and right (half the Word default)
