@@ -143,6 +143,10 @@ def build_document(
     md_to_html = mistune.create_markdown()
     segments   = re.split(r'(__(?:TABLE|MERMAID)_\d+__)', body_md_processed)
 
+    # Single walker instance so heading counters persist across all text
+    # segments (tables and diagrams split the text but must not reset numbering).
+    walker = HtmlToDocx(doc, md_src_dir=md_src_dir)
+
     with tempfile.TemporaryDirectory() as tmp_dir:
         for seg in segments:
             tbl_match = re.match(r'__TABLE_(\d+)__',   seg.strip())
@@ -153,7 +157,6 @@ def build_document(
                 render_diagram(doc, mermaid_data_list[int(mmd_match.group(1))], tmp_dir)
             elif seg.strip():
                 html_fragment = md_to_html(seg)
-                walker = HtmlToDocx(doc, md_src_dir=md_src_dir)
                 walker.feed(html_fragment)
 
     # ── 7. Save ───────────────────────────────────────────────────────────────
