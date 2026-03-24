@@ -1,0 +1,83 @@
+name: "Build DOCX Documents"
+description: >
+  Batch render Markdown documentation to styled DOCX files using docx-build-all.
+  Reads docx-build.yml from the calling repository to determine which folders to scan.
+
+inputs:
+  config:
+    description: "Path to docx-build.yml config file"
+    required: false
+    default: "docx-build.yml"
+  org:
+    description: >
+      Path to org identity YAML file (overrides the 'org' key in docx-build.yml
+      if both are set). Use this to inject org credentials from a secret at
+      call time without committing them to the content repo.
+    required: false
+    default: ""
+  force:
+    description: "Re-render all documents regardless of version or status match"
+    required: false
+    default: "false"
+  report-file:
+    description: "Write the build report to this path in addition to stdout"
+    required: false
+    default: ""
+
+outputs:
+  rendered:
+    description: "Number of documents rendered in this run"
+  skipped:
+    description: "Number of documents skipped (already up to date)"
+  failed:
+    description: "Number of documents that failed to render"
+
+runs:
+  using: "docker"
+  image: "docker://ghcr.io/khalilgibrotha/dac-toolkit:latest"
+  entrypoint: /bin/sh
+  args:
+    - -c
+    - |
+      ARGS="docx-build-all --config ${{ inputs.config }}"
+      if [ "${{ inputs.org }}" != "" ]; then ARGS="$ARGS --org ${{ inputs.org }}"; fi
+      if [ "${{ inputs.force }}" = "true" ]; then ARGS="$ARGS --force"; fi
+      if [ "${{ inputs.report-file }}" != "" ]; then ARGS="$ARGS --report-file ${{ inputs.report-file }}"; fi
+      $ARGS
+
+# ── Usage example ─────────────────────────────────────────────────────────────
+#
+# In your content repository (.github/workflows/render-docs.yml):
+#
+#   name: Render Docs
+#   on:
+#     push:
+#       branches: [develop]
+#       paths:
+#         - 'docs/**'
+#         - 'governance/**'
+#         - 'references/**'
+#         - 'patterns/**'
+#         - 'initiatives/**'
+#
+#   jobs:
+#     render:
+#       runs-on: ubuntu-latest
+#       steps:
+#         - uses: actions/checkout@v4
+#
+#         - name: Render documents
+#           uses: KhalilGibrotha/dac-toolkit@main
+#           with:
+#             config: docx-build.yml
+#             force: 'false'
+#             report-file: exports/.last-run-report.txt
+#
+#         - name: Upload rendered DOCX
+#           uses: actions/upload-artifact@v4
+#           with:
+#             name: rendered-docs
+#             path: exports/
+#
+# Prerequisite: the Docker image must be built and pushed to GHCR first.
+# See dac-toolkit issue #7 (CI: build and push Docker image on change).
