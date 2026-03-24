@@ -100,6 +100,34 @@ def set_table_border(table, color: str = "CCCCCC", sz: int = 4):
         tblPr.append(tblBorders)
 
 
+def set_cell_margins(cell, top: int = 36, bottom: int = 36,
+                     left: int = 72, right: int = 72):
+    """
+    Set internal cell padding via <w:tcMar>.
+
+    Values are in twips (1 pt = 20 twips; 1 inch = 1440 twips).
+    Defaults produce a compact but readable cell:
+      top/bottom: 36 twips (1.8 pt)
+      left/right: 72 twips (3.6 pt, half the Word default of 108)
+
+    Schema note: <w:tcMar> must appear AFTER <w:shd> in <w:tcPr>.
+    This function appends it, so call it after set_cell_bg() and
+    set_cell_borders().
+    """
+    tc   = cell._tc
+    tcPr = tc.get_or_add_tcPr()
+    existing = tcPr.find(qn('w:tcMar'))
+    if existing is not None:
+        tcPr.remove(existing)
+    tcMar = OxmlElement('w:tcMar')
+    for side, val in (('top', top), ('left', left), ('bottom', bottom), ('right', right)):
+        el = OxmlElement(f'w:{side}')
+        el.set(qn('w:w'),    str(val))
+        el.set(qn('w:type'), 'dxa')
+        tcMar.append(el)
+    tcPr.append(tcMar)
+
+
 def set_col_width(table, col_idx: int, width_inches: float):
     """Force a specific column to the given width (overrides table auto-fit)."""
     for row in table.rows:
