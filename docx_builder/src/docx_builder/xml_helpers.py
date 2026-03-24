@@ -25,6 +25,8 @@ from docx.oxml import OxmlElement
 from docx.shared import RGBColor
 import docx
 
+from .constants import TABLE_CELL_MARGIN_V, TABLE_CELL_MARGIN_H
+
 
 # ── Cell / table XML helpers ──────────────────────────────────────────────────
 
@@ -100,18 +102,22 @@ def set_table_border(table, color: str = "CCCCCC", sz: int = 4):
         tblPr.append(tblBorders)
 
 
-def set_cell_margins(cell, top: int = 36, bottom: int = 36,
-                     left: int = 72, right: int = 72):
+def set_cell_margins(cell,
+                     top: int = TABLE_CELL_MARGIN_V,
+                     bottom: int = TABLE_CELL_MARGIN_V,
+                     left: int = TABLE_CELL_MARGIN_H,
+                     right: int = TABLE_CELL_MARGIN_H):
     """
     Set internal cell padding via <w:tcMar>.
 
     Values are in twips (1 pt = 20 twips; 1 inch = 1440 twips).
-    Defaults produce a compact but readable cell:
-      top/bottom: 36 twips (1.8 pt)
-      left/right: 72 twips (3.6 pt, half the Word default of 108)
+    Defaults from constants.py produce a compact but readable cell:
+      top/bottom: TABLE_CELL_MARGIN_V (36 twips / 1.8 pt)
+      left/right: TABLE_CELL_MARGIN_H (72 twips / 3.6 pt, half Word default)
 
-    Schema note: <w:tcMar> must appear AFTER <w:shd> in <w:tcPr>.
-    This function appends it, so call it after set_cell_bg() and
+    Schema ordering is enforced: <w:tcMar> is inserted immediately after
+    <w:shd> (if present) or appended at the end of <w:tcPr>. This makes the
+    function safe to call in any order relative to set_cell_bg() and
     set_cell_borders().
     """
     tc   = cell._tc
@@ -125,7 +131,14 @@ def set_cell_margins(cell, top: int = 36, bottom: int = 36,
         el.set(qn('w:w'),    str(val))
         el.set(qn('w:type'), 'dxa')
         tcMar.append(el)
-    tcPr.append(tcMar)
+    # Insert after <w:shd> to satisfy tcPr schema ordering.
+    # If <w:shd> is not present, append at end (safe default position).
+    shd = tcPr.find(qn('w:shd'))
+    if shd is not None:
+        shd_idx = list(tcPr).index(shd)
+        tcPr.insert(shd_idx + 1, tcMar)
+    else:
+        tcPr.append(tcMar)
 
 
 def set_col_width(table, col_idx: int, width_inches: float):
