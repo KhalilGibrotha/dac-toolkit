@@ -57,6 +57,42 @@ def _strip_html(text: str) -> str:
     return re.sub(r'<[^>]+>', '', text or '').strip()
 
 
+# ── Emoji font splitter ───────────────────────────────────────────────────────
+#
+# Word cannot find emoji glyphs in Calibri or most body fonts.  When a run
+# contains emoji, the characters must be emitted with a font that has coverage —
+# on Windows, "Segoe UI Emoji" is the correct choice.
+#
+# _EMOJI_RE matches the Unicode ranges that cover the emoji used in this
+# document set (colored circles, check/cross marks, misc symbols).
+# _split_for_emoji splits a string into [(segment, is_emoji), ...] tuples so
+# _add_run can emit separate runs with the appropriate font per segment.
+
+_EMOJI_RE = re.compile(
+    '['
+    '\U0001F300-\U0001FAFF'   # Misc symbols, emoticons, supplemental (🔴🟡🟢✅❌ etc.)
+    '\u2600-\u27BF'            # Misc symbols + dingbats (⚠️ ⚪ ☑ ☐ etc.)
+    '\uFE00-\uFE0F'            # Variation selectors (emoji modifiers)
+    ']+',
+    re.UNICODE
+)
+
+def _split_for_emoji(text: str) -> list[tuple[str, bool]]:
+    """Split *text* into [(segment, is_emoji), ...] pairs."""
+    if not text:
+        return []
+    segments: list[tuple[str, bool]] = []
+    prev = 0
+    for m in _EMOJI_RE.finditer(text):
+        if m.start() > prev:
+            segments.append((text[prev:m.start()], False))
+        segments.append((m.group(), True))
+        prev = m.end()
+    if prev < len(text):
+        segments.append((text[prev:], False))
+    return segments or [(text, False)]
+
+
 # ── Inline markdown renderer for table cells ─────────────────────────────────
 #
 # Table cells are extracted before mistune sees them, so inline markdown
@@ -74,15 +110,23 @@ _INLINE_MD_RE = re.compile(
 
 
 def _add_cell_run(para, text, *, bold, italic, code, color, font_name, font_size):
-    """Add a single formatted run to a table-cell paragraph."""
+    """Add a single formatted run to a table-cell paragraph.
+
+    Emoji characters are split into separate runs with Segoe UI Emoji font so
+    Word can locate the glyphs.  Code spans are never split (no emoji expected).
+    """
     if not text:
         return
-    run            = para.add_run(text)
-    run.bold       = bold
-    run.italic     = italic
-    run.font.name  = "Courier New" if code else font_name
-    run.font.size  = font_size
-    set_run_color(run, color)
+    segments = [(text, False)] if code else _split_for_emoji(text)
+    for segment_text, is_emoji in segments:
+        if not segment_text:
+            continue
+        run           = para.add_run(segment_text)
+        run.bold      = bold
+        run.italic    = italic
+        run.font.name = "Courier New" if code else ("Segoe UI Emoji" if is_emoji else font_name)
+        run.font.size = font_size
+        set_run_color(run, color)
 
 
 def _render_cell_text(para, text, *, base_bold=False, color, font_name, font_size):
@@ -188,18 +232,24 @@ class HtmlToDocx(HTMLParser):
         if not text:
             return
         para = self._ensure_para()
-        run  = para.add_run(text)
-        run.font.name = "Courier New" if code else FONT_BODY
-        run.font.size = Pt(9) if code else Pt(10)
-        run.bold      = bold
-        run.italic    = italic
-        if link:
-            set_run_color(run, BLUE_LINK)
-            run.underline = True
-        elif code:
-            set_run_color(run, RGBColor(0x1F, 0x1F, 0x1F))
-        else:
-            set_run_color(run, BLACK)
+        # Split on emoji boundaries so emoji segments get Segoe UI Emoji font.
+        # Code spans are never emoji; skip splitting for them.
+        segments = [(text, False)] if code else _split_for_emoji(text)
+        for segment_text, is_emoji in segments:
+            if not segment_text:
+                continue
+            run           = para.add_run(segment_text)
+            run.font.name = "Courier New" if code else ("Segoe UI Emoji" if is_emoji else FONT_BODY)
+            run.font.size = Pt(9) if code else Pt(10)
+            run.bold      = bold
+            run.italic    = italic
+            if link:
+                set_run_color(run, BLUE_LINK)
+                run.underline = True
+            elif code:
+                set_run_color(run, RGBColor(0x1F, 0x1F, 0x1F))
+            else:
+                set_run_color(run, BLACK)
 
     def _handle_img(self, attrs_dict: dict) -> None:
         """

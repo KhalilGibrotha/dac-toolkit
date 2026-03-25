@@ -128,6 +128,15 @@ def build_document(
     # in ![alt](path) references inside HtmlToDocx.
     md_src_dir = os.path.dirname(os.path.abspath(md_path))
 
+    # Step 1a: Normalize GFM task list checkboxes to Unicode box characters
+    #          before mistune sees them.  mistune does not process task lists,
+    #          so "- [ ] text" renders as literal "[ ] text" in the output.
+    #          Replace with ☐ / ☑ which Word renders correctly with standard fonts.
+    body_md = re.sub(r'^(\s*)-\s+\[x\]\s+', r'\1- ' + '\u2611 ',
+                     body_md, flags=re.MULTILINE | re.IGNORECASE)
+    body_md = re.sub(r'^(\s*)-\s+\[ \]\s+', r'\1- ' + '\u2610 ',
+                     body_md, flags=re.MULTILINE)
+
     # Step 1: Extract inline Mermaid fences before mistune sees them.
     #         Replaces each ```mermaid block with a __MERMAID_N__ placeholder.
     body_md_no_mermaid, mermaid_data_list = extract_mermaid_fences(body_md)

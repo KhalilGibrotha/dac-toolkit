@@ -42,3 +42,27 @@ docx-build examples/sample_input.md --org examples/org.yaml --output /tmp/test.d
 # Run tests
 cd docx_builder && python -m pytest tests/
 ```
+
+## Cross-Repo Tooling
+
+Repo management scripts live in a sibling repo:
+- Path: `../claude-repo-tools/scripts/`
+- Repo: https://github.com/KhalilGibrotha/claude-repo-tools
+
+Available commands:
+```bash
+# Cross-repo health check (branches, PRs, drift)
+bash ../claude-repo-tools/scripts/check-status.sh
+
+# Create release PR (develop → main) and optionally merge
+bash ../claude-repo-tools/scripts/release.sh dac-toolkit "Release message" --merge
+
+# Delete merged/orphaned branches
+bash ../claude-repo-tools/scripts/cleanup-branches.sh dac-toolkit
+
+# Build a DOCX and print heading tree for verification
+bash ../claude-repo-tools/scripts/verify-docx.sh <path-to-markdown-file>
+
+# Lint content repo markdown for LLM artifacts (run against the content repo, not dac-toolkit)
+bash ../claude-repo-tools/scripts/lint-markdown.sh architecture-docs
+```
