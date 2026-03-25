@@ -62,4 +62,7 @@ bash ../claude-repo-tools/scripts/cleanup-branches.sh dac-toolkit
 
 # Build a DOCX and print heading tree for verification
 bash ../claude-repo-tools/scripts/verify-docx.sh <path-to-markdown-file>
+
+# Lint content repo markdown for LLM artifacts (run against the content repo, not dac-toolkit)
+bash ../claude-repo-tools/scripts/lint-markdown.sh architecture-docs
 ```
