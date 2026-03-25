@@ -15,7 +15,8 @@ dependencies = [
 ]
 
 [project.scripts]
-docx-build = "docx_builder.cli:main"
+docx-build     = "docx_builder.cli:main"
+docx-build-all = "docx_builder.batch_cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
