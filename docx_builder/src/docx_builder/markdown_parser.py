@@ -17,14 +17,14 @@ Why the multi-stage approach:
   builder.py, so they appear in the correct document position.
 
 Supported markdown elements:
-  Block:  h1–h3, p, ul (unordered), ol (ordered), blockquote, pre/code, hr
+  Block:  h1–h6, p, ul (unordered), ol (ordered), blockquote, pre/code, hr
   Inline: strong, em, code, a (hyperlink text only, no live URL in DOCX)
   Images: ![alt text](relative/path/to/image.png) — resolved relative to
           the source .md file's directory (PNG, JPG, GIF, TIFF, BMP)
   Tables: GFM pipe tables with header / alignment divider / body rows
 
 Elements not supported (rendered as plain text or ignored):
-  - h4–h6 (treated as h3)
+  - h4–h6 styled as h3 (clamped — template defines three heading levels)
   - Nested blockquotes beyond one level
   - HTML inside markdown (stripped)
   - SVG images (export to PNG before referencing)
@@ -319,7 +319,7 @@ class HtmlToDocx(HTMLParser):
         if tag in self._skip_tags:
             return
 
-        if tag in ('h1', 'h2', 'h3'):
+        if tag in ('h1', 'h2', 'h3', 'h4', 'h5', 'h6'):
             self._flush_para()
             self._current_para = self.doc.add_paragraph()
 
@@ -374,9 +374,9 @@ class HtmlToDocx(HTMLParser):
         if self._tag_stack and self._tag_stack[-1][0] == tag:
             self._tag_stack.pop()
 
-        if tag in ('h1', 'h2', 'h3'):
+        if tag in ('h1', 'h2', 'h3', 'h4', 'h5', 'h6'):
             if self._current_para:
-                level    = int(tag[1])
+                level    = min(int(tag[1]), 3)   # clamp h4–h6 to h3 style
                 raw_text = ''.join(r.text for r in self._current_para.runs)
                 numbered = self._heading_numberer.format(level, raw_text)
                 # Replace paragraph content with the numbered heading text
@@ -440,6 +440,7 @@ class HtmlToDocx(HTMLParser):
 
         # Ignore whitespace-only text between block-level elements
         if data.strip() == '' and not (tags & {'p', 'li', 'h1', 'h2', 'h3',
+                                               'h4', 'h5', 'h6',
                                                'strong', 'em', 'code', 'a',
                                                'blockquote'}):
             return
