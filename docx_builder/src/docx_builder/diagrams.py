@@ -67,6 +67,7 @@ import urllib.error
 import hashlib
 
 from docx.shared import Inches, Pt
+from docx.image.image import Image as DocxImage
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
@@ -78,6 +79,7 @@ from .constants import FONT_BODY, DARK_NAVY, GRAY_TEXT, BLACK
 # Default rendered width in the document body (inches).
 # Fits within 1" margins on 8.5" US Letter with some breathing room.
 DIAGRAM_DEFAULT_WIDTH_IN: float = 5.5
+DIAGRAM_MAX_HEIGHT_IN: float = 4.75
 
 # mermaid.ink theme applied to all diagrams when using the API backend.
 # Options: 'default' | 'neutral' | 'forest' | 'dark'
@@ -312,7 +314,11 @@ def _embed_image(doc, img_path: str, caption: str | None) -> None:
     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
     from .xml_helpers import para_spacing
     para_spacing(p, before=120, after=40)
-    p.add_run().add_picture(img_path, width=Inches(DIAGRAM_DEFAULT_WIDTH_IN))
+    width, height = fit_image_dimensions(img_path)
+    if height is None:
+        p.add_run().add_picture(img_path, width=width)
+    else:
+        p.add_run().add_picture(img_path, width=width, height=height)
 
     if caption:
         _add_caption(doc, caption)
@@ -370,3 +376,20 @@ def _add_caption(doc, text: str) -> None:
     run.font.name = FONT_BODY
     run.font.size = Pt(9)
     set_run_color(run, GRAY_TEXT)
+
+
+def fit_image_dimensions(
+    img_path: str,
+    *,
+    max_width_in: float = DIAGRAM_DEFAULT_WIDTH_IN,
+    max_height_in: float = DIAGRAM_MAX_HEIGHT_IN,
+):
+    """Return width/height bounded to a page-friendly box while preserving aspect ratio."""
+    image = DocxImage.from_file(img_path)
+    width_in = image.width / 914400
+    height_in = image.height / 914400
+    if width_in <= 0 or height_in <= 0:
+        return Inches(max_width_in), None
+
+    scale = min(max_width_in / width_in, max_height_in / height_in, 1.0)
+    return Inches(width_in * scale), Inches(height_in * scale)
