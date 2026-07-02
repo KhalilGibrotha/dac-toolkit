@@ -16,7 +16,7 @@ from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
 
 from .constants import BLUE_DARK, BLUE_MID, BLACK, FONT_TITLE
-from .xml_helpers import set_run_color, para_spacing
+from .xml_helpers import set_run_color, para_spacing, set_para_keep_next
 
 
 def apply_heading_style(doc, para, level: int):
@@ -45,6 +45,8 @@ def apply_heading_style(doc, para, level: int):
     before_map = {1: 240,       2: 180,     3: 120}
 
     para_spacing(para, before=before_map.get(level, 120), after=80)
+    # Keep headings with the following block when Word paginates the body.
+    set_para_keep_next(para)
 
     for run in para.runs:
         run.bold      = True
