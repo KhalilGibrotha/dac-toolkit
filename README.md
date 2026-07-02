@@ -164,6 +164,16 @@ pre-installed. See `.devcontainer/README.md` for setup.
 
 Both enforce offline operation — no outbound network connections at runtime.
 
+### Workflow Boundaries
+
+This repository is the long-term home for the documentation renderer and
+documentation-first workflow. The intended split between this repo and the
+Dev Space wrapper repo is documented here:
+
+- [docs/repo-boundaries.md](docs/repo-boundaries.md)
+- [docs/content-repo-conventions.md](docs/content-repo-conventions.md)
+- [docs/backlog.md](docs/backlog.md)
+
 ### Multi-Repo Dev Spaces Workspace
 
 Edit `devfile.yaml` to add your content repos to the `projects:` block:
