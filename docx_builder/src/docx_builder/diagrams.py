@@ -64,6 +64,7 @@ import shutil
 import zlib
 import urllib.request
 import urllib.error
+import urllib.parse
 import hashlib
 
 from docx.shared import Inches, Pt
@@ -87,6 +88,12 @@ DIAGRAM_MAX_HEIGHT_IN: float = 4.75
 # 'default' uses blues that are closer to the default document colour scheme.
 # Can be overridden via front matter: diagrams.mermaid_theme
 MERMAID_INK_DEFAULT_THEME: str = 'neutral'
+
+# Render diagrams at a higher pixel density than the final on-page
+# size so dense node/link layouts stay readable when embedded into DOCX.
+DIAGRAM_RENDER_SCALE_DEFAULT: float = 2.0
+DIAGRAM_RENDER_SCALE_MIN: float = 1.0
+DIAGRAM_RENDER_SCALE_MAX: float = 4.0
 
 
 # ── Extraction ────────────────────────────────────────────────────────────────
@@ -155,6 +162,7 @@ def render_diagram(
     """
     source  = diagram_data['source']
     caption = diagram_data.get('caption')
+    render_scale = _get_mermaid_render_scale()
 
     digest = hashlib.sha256(source.encode("utf-8")).hexdigest()
     png_path = os.path.join(tmp_dir, f'mermaid_{digest}.png')
@@ -165,15 +173,25 @@ def render_diagram(
     # 1. mmdc — best quality, supports custom CSS; used when in PATH
     if backend in ('auto', 'mmdc') and shutil.which('mmdc'):
         _css = css_path or os.environ.get('DOCX_BUILDER_MERMAID_CSS')
-        rendered = _render_via_mmdc(source, png_path, css_path=_css)
+        rendered = _render_via_mmdc(
+            source,
+            png_path,
+            css_path=_css,
+            scale=render_scale,
+        )
 
     # 2. kroki.io — primary public API, generally more reliable
     if not rendered and backend in ('auto', 'kroki'):
-        rendered = _render_via_kroki(source, png_path)
+        rendered = _render_via_kroki(source, png_path, scale=render_scale)
 
     # 3. mermaid.ink — secondary public API fallback
     if not rendered and backend in ('auto', 'mermaid_ink'):
-        rendered = _render_via_mermaid_ink(source, png_path, theme=mermaid_theme)
+        rendered = _render_via_mermaid_ink(
+            source,
+            png_path,
+            theme=mermaid_theme,
+            scale=render_scale,
+        )
 
     if rendered and os.path.isfile(png_path):
         _embed_image(doc, png_path, caption)
@@ -183,7 +201,7 @@ def render_diagram(
 
 # ── Private: rendering backends ───────────────────────────────────────────────
 
-def _render_via_kroki(source: str, output_path: str) -> bool:
+def _render_via_kroki(source: str, output_path: str, scale: float = DIAGRAM_RENDER_SCALE_DEFAULT) -> bool:
     """
     Fetch a rendered PNG from the kroki.io public API.
 
@@ -196,7 +214,8 @@ def _render_via_kroki(source: str, output_path: str) -> bool:
     try:
         compressed = zlib.compress(source.encode('utf-8'), level=9)
         encoded    = base64.urlsafe_b64encode(compressed).decode('ascii')
-        url = f'https://kroki.io/mermaid/png/{encoded}'
+        params = urllib.parse.urlencode({'scale': _format_scale_query_value(scale)})
+        url = f'https://kroki.io/mermaid/png/{encoded}?{params}'
         req = urllib.request.Request(
             url,
             headers={'User-Agent': 'docx-builder/1.0'},
@@ -219,6 +238,7 @@ def _render_via_mermaid_ink(
     source: str,
     output_path: str,
     theme: str = MERMAID_INK_DEFAULT_THEME,
+    scale: float = DIAGRAM_RENDER_SCALE_DEFAULT,
 ) -> bool:
     """
     Fetch a rendered PNG from the mermaid.ink public API.
@@ -231,7 +251,12 @@ def _render_via_mermaid_ink(
     try:
         encoded = base64.urlsafe_b64encode(source.encode('utf-8')).decode('ascii')
         # bgColor=!white keeps the diagram background white regardless of theme
-        url = f'https://mermaid.ink/img/{encoded}?bgColor=!white&theme={theme}'
+        params = urllib.parse.urlencode({
+            'bgColor': '!white',
+            'theme': theme,
+            'scale': _format_scale_query_value(scale),
+        })
+        url = f'https://mermaid.ink/img/{encoded}?{params}'
         req = urllib.request.Request(
             url,
             headers={'User-Agent': 'docx-builder/1.0'},
@@ -255,6 +280,7 @@ def _render_via_mmdc(
     source: str,
     output_path: str,
     css_path: str | None = None,
+    scale: float = DIAGRAM_RENDER_SCALE_DEFAULT,
 ) -> bool:
     """
     Render a Mermaid diagram via the mmdc CLI (requires Node.js).
@@ -283,7 +309,17 @@ def _render_via_mmdc(
             tmp.write(source)
             mmd_path = tmp.name
 
-        cmd = ['mmdc', '-i', mmd_path, '-o', output_path, '-b', 'white']
+        cmd = [
+            'mmdc',
+            '-i',
+            mmd_path,
+            '-o',
+            output_path,
+            '-b',
+            'white',
+            '-s',
+            _format_scale_query_value(scale),
+        ]
         if css_path and os.path.isfile(css_path):
             cmd += ['--cssFile', css_path]
 
@@ -393,3 +429,35 @@ def fit_image_dimensions(
 
     scale = min(max_width_in / width_in, max_height_in / height_in, 1.0)
     return Inches(width_in * scale), Inches(height_in * scale)
+
+
+def _get_mermaid_render_scale() -> float:
+    """Return a bounded diagram render scale from the environment."""
+    raw = ''
+    for name in (
+        'DOCX_BUILDER_DIAGRAM_RENDER_SCALE',
+        'DOCX_BUILDER_MERMAID_RENDER_SCALE',
+    ):
+        value = os.environ.get(name)
+        if value is not None and value.strip():
+            raw = value.strip()
+            break
+    if not raw:
+        raw = str(DIAGRAM_RENDER_SCALE_DEFAULT)
+    try:
+        scale = float(raw)
+    except ValueError:
+        return DIAGRAM_RENDER_SCALE_DEFAULT
+
+    if scale < DIAGRAM_RENDER_SCALE_MIN:
+        return DIAGRAM_RENDER_SCALE_MIN
+    if scale > DIAGRAM_RENDER_SCALE_MAX:
+        return DIAGRAM_RENDER_SCALE_MAX
+    return scale
+
+
+def _format_scale_query_value(scale: float) -> str:
+    """Serialize scale values cleanly for CLI flags and HTTP query strings."""
+    if float(scale).is_integer():
+        return str(int(scale))
+    return str(scale)
