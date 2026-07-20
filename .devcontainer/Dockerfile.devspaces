@@ -45,13 +45,18 @@ RUN curl -fsSL "https://github.com/quarto-dev/quarto-cli/releases/download/v${QU
     | tar xz -C /opt \
     && ln -s /opt/quarto-${QUARTO_VERSION}/bin/quarto /usr/local/bin/quarto
 
-# ── LibreOffice (headless) — optional, for the deck QA slide-image gallery ────
-# Only `render-decks.sh --qa` (pptx -> pdf -> png) needs it; rendering .pptx
-# does not. Best-effort: if the base repos lack it the build continues, and
-# --qa reports the skipped gallery instead of failing.
-RUN dnf install -y --nodocs libreoffice-impress libreoffice-calc \
-    && dnf clean all \
-    || echo "NOTE: LibreOffice not installed from dnf; deck --qa gallery unavailable in this image"
+# ── LibreOffice: deliberately NOT installed ─────────────────────────────
+# Verified 2026-07-20: libreoffice-impress is not available from any UBI9 repo
+# (ubi-9-appstream, ubi-9-baseos, ubi-9-codeready-builder all report "No
+# matching Packages"). A dnf install here can never succeed, so it is omitted
+# rather than left as a silently failing layer.
+#
+# Consequence: render-decks.sh renders .pptx normally in this image; only the
+# --qa slide-image gallery (pptx -> pdf -> png) is unavailable, and the script
+# reports the skipped gallery and continues rather than failing.
+#
+# To add it, install from The Document Foundation RPM tarball (~250MB; soffice
+# lands under /opt/libreoffice<ver>/program/) rather than via dnf.
 
 # ── Node.js ──────────────────────────────────────────────────────────────────
 # The UBI9 python-312 base image includes Node.js (22.x) from the appstream

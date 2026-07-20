@@ -159,14 +159,19 @@ and this generic example.
 
 ## In Dev Spaces / containers
 
-The container image bakes in Quarto, LibreOffice, and the Python figure
-dependencies (`jupyter`, `matplotlib`, `pymupdf`). Clone the toolkit and your
-content repo into the workspace, then:
+The container image bakes in Quarto, pandoc, and the Python figure
+dependencies (`jupyter`, `matplotlib`, `pymupdf`) — verified by rendering a
+deck end to end inside the image. It does **not** include LibreOffice, which
+is unavailable from the UBI9 repositories, so the `--qa` slide-image gallery
+does not run in-container. `.pptx` rendering is unaffected. Clone the toolkit
+and your content repo into the workspace, then:
 
 ```bash
 bash dac-toolkit/scripts/render-decks.sh my-content-repo --qa
 ```
 
 Rendering the `.pptx` needs only Quarto + Python; the `--qa` PNG gallery
-additionally needs LibreOffice. If LibreOffice is absent, rendering still
-succeeds and `--qa` reports that it skipped the gallery.
+additionally needs LibreOffice. Where LibreOffice is absent — including the
+current container image — rendering still succeeds and `--qa` reports the
+skipped gallery. Review the `.pptx` directly, or run `--qa` on a host that has
+LibreOffice installed.

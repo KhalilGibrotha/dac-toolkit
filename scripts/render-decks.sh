@@ -43,7 +43,9 @@ QUARTO="$(find_bin quarto \
 find_soffice() {
     find_bin soffice \
         "/c/Program Files/LibreOffice/program/soffice.exe" \
-        "/usr/bin/soffice" "/usr/local/bin/soffice" "/opt/libreoffice/program/soffice"
+        "/usr/bin/soffice" "/usr/local/bin/soffice" \
+        /usr/lib64/libreoffice/program/soffice \
+        /opt/libreoffice*/program/soffice
 }
 
 qa_export() { # pptx path -> per-slide PNGs + a dark contact-sheet gallery

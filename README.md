@@ -226,10 +226,12 @@ lxml>=4.9
 
 Python 3.10+ required. Install with `pip install -e docx_builder`.
 
-**Deck rendering** additionally needs Quarto and, for the figure chunks and QA
-gallery, `jupyter`, `matplotlib`, and `pymupdf` (plus LibreOffice for the
-optional PNG export). All are baked into the container images; locally,
-`pip install jupyter matplotlib pymupdf` and install Quarto + LibreOffice.
+**Deck rendering** additionally needs Quarto plus `jupyter`, `matplotlib`, and
+`pymupdf` for the figure chunks — all baked into the container images. The
+optional `--qa` PNG gallery also needs LibreOffice, which is *not* in the images
+(unavailable from the UBI9 repositories); `.pptx` rendering is unaffected.
+Locally: `pip install jupyter matplotlib pymupdf`, plus Quarto and LibreOffice
+if you want the gallery.
 
 ---
 
