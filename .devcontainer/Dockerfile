@@ -9,9 +9,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     fonts-liberation libappindicator3-1 \
     # Pandoc
     pandoc \
+    # LibreOffice (headless) — for the deck QA slide-image gallery (optional)
+    libreoffice-impress libreoffice-calc \
     # Utilities
     jq \
     && rm -rf /var/lib/apt/lists/*
+
+# ── Quarto (presentation + document rendering) ───────────────────────────────
+ARG QUARTO_VERSION=1.6.40
+RUN curl -fsSL "https://github.com/quarto-dev/quarto-cli/releases/download/v${QUARTO_VERSION}/quarto-${QUARTO_VERSION}-linux-amd64.tar.gz" \
+    | tar xz -C /opt \
+    && ln -s /opt/quarto-${QUARTO_VERSION}/bin/quarto /usr/local/bin/quarto
 
 # ── Node.js 20 LTS ──────────────────────────────────────────────────────────
 RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
@@ -43,4 +51,9 @@ RUN pip install --no-cache-dir \
     "python-docx>=1.1.0" \
     "PyYAML>=6.0" \
     "mistune>=3.0" \
-    "lxml>=4.9"
+    "lxml>=4.9" \
+    # deck rendering: jupyter runs Quarto's executable Python chunks;
+    # matplotlib draws figures; pymupdf rasterizes slides for the QA gallery
+    "jupyter>=1.0" \
+    "matplotlib>=3.8" \
+    "pymupdf>=1.24"

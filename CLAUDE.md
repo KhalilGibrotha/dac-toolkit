@@ -12,7 +12,8 @@ conventions (document model, front matter requirements, style guide).
 
 - `docx_builder/` — Python package: Markdown + YAML → styled DOCX
 - `.devcontainer/` — Offline devcontainer (Dockerfile, Dockerfile.devspaces, docker-compose)
-- `scripts/` — build-docs.sh, render-diagrams.sh, vale-bootstrap.sh
+- `scripts/` — build-docs.sh, render-diagrams.sh, render-decks.sh, lint-decks.py, vale-bootstrap.sh
+- `presentations/` — Quarto → PowerPoint example (generic template, code theme, matplotlib palette). See presentations/README.md
 - `templates/` — Document templates (generic, no org identity)
 - `examples/` — Example org.yaml and sample inputs
 

@@ -45,7 +45,10 @@ dac-toolkit/
 │   └── pyproject.toml      Package config (pip install -e .)
 ├── scripts/
 │   ├── build-docs.sh       Full pipeline: diagrams + DOCX for a content repo
-│   └── render-diagrams.sh  Batch render Mermaid .mmd files and fences
+│   ├── render-diagrams.sh  Batch render Mermaid .mmd files and fences
+│   ├── render-decks.sh     Render Quarto .qmd decks to PowerPoint + QA gallery
+│   └── lint-decks.py       Deck gate: source↔render pairing and package integrity
+├── presentations/          Quarto → PowerPoint example (template, theme, palette)
 ├── templates/              Generic document templates (gap analysis, ADR, etc.)
 ├── diagrams/
 │   └── mermaid-theme.css   Custom Mermaid CSS theme for mmdc
@@ -56,6 +59,25 @@ dac-toolkit/
 ├── devfile.yaml            OpenShift Dev Spaces multi-repo workspace
 └── .markdownlint.json      Markdown linting rules
 ```
+
+---
+
+## Presentations (Quarto → PowerPoint)
+
+Alongside DOCX, the toolkit renders **Markdown-source presentation decks** to
+PowerPoint. Author a `.qmd`, render to `.pptx`, and review per-slide PNGs —
+figures come from executable Python chunks so charts stay on-brand and
+regenerate from source. The bundled `presentations/` directory is a generic,
+runnable example (template, code theme, matplotlib palette).
+
+```bash
+bash scripts/render-decks.sh --smoke                     # render the example (self-test)
+bash scripts/render-decks.sh /path/to/content-repo --qa  # render a content repo's decks + QA gallery
+python scripts/lint-decks.py /path/to/content-repo       # enforce source↔render pairing
+```
+
+Full routine, authoring rules, and the content-repo layout:
+**[presentations/README.md](presentations/README.md)**.
 
 ---
 
@@ -76,6 +98,7 @@ content-repo/
 │   └── org.yaml    Your org identity (name, dept, address, URL)
 ├── assets/
 │   └── logo/logo.png   Your org logo
+├── presentations/  Quarto decks + your branded template/theme/palette (optional)
 └── exports/        Generated DOCX output
 ```
 
@@ -202,6 +225,11 @@ lxml>=4.9
 ```
 
 Python 3.10+ required. Install with `pip install -e docx_builder`.
+
+**Deck rendering** additionally needs Quarto and, for the figure chunks and QA
+gallery, `jupyter`, `matplotlib`, and `pymupdf` (plus LibreOffice for the
+optional PNG export). All are baked into the container images; locally,
+`pip install jupyter matplotlib pymupdf` and install Quarto + LibreOffice.
 
 ---
 

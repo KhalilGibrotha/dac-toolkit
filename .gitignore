@@ -11,6 +11,11 @@ exports/*.docx
 exports/*.pdf
 *.zip
 
+# Quarto deck rendering (committed .pptx review copies in presentations/exports ARE tracked)
+.quarto/
+presentations/exports/*.html
+presentations/exports/*_files/
+
 # IDE / editor
 .idea/
 *.swp
