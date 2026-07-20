@@ -42,7 +42,10 @@ for src in sources:
             f"(source {src.name} has no committed pptx)")
 
 stems = {s.stem for s in sources}
-renders = sorted(exports.glob("*.pptx")) if exports.is_dir() else []
+# Skip PowerPoint lock/temp files (~$name.pptx) - created whenever a deck
+# is open in PowerPoint; they are not renders.
+renders = ([p for p in sorted(exports.glob("*.pptx")) if not p.name.startswith("~$")]
+           if exports.is_dir() else [])
 for pptx in renders:
     if pptx.stem not in stems:
         failures.append(
