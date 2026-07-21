@@ -33,7 +33,7 @@ RUN dnf install -y --nodocs \
     git \
     # Utilities
     jq \
-    && dnf install -y --nodocs https://github.com/cli/cli/releases/download/v2.67.0/gh_2.67.0_linux_amd64.rpm \
+    && dnf install -y --nodocs https://github.com/cli/cli/releases/download/v2.96.0/gh_2.96.0_linux_amd64.rpm \
     && dnf clean all
 
 # ── Pandoc (direct binary — not available in free UBI repos) ─────────────────
@@ -83,7 +83,7 @@ RUN echo '{"args":["--no-sandbox","--disable-setuid-sandbox","--disable-dev-shm-
 ENV PUPPETEER_CONFIG=/opt/puppeteer-config.json
 
 # ── Vale prose linter ─────────────────────────────────────────────────────
-ARG VALE_VERSION=3.9.5
+ARG VALE_VERSION=3.15.1
 COPY .vale-bootstrap.ini /tmp/.vale.ini
 RUN curl -fsSL "https://github.com/errata-ai/vale/releases/download/v${VALE_VERSION}/vale_${VALE_VERSION}_Linux_64-bit.tar.gz" \
     | tar xz -C /usr/local/bin vale \
