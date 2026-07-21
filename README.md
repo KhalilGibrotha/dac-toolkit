@@ -45,6 +45,7 @@ dac-toolkit/
 │   └── pyproject.toml      Package config (pip install -e .)
 ├── scripts/
 │   ├── build-docs.sh       Full pipeline: diagrams + DOCX for a content repo
+│   ├── docx_manifest.py    Manifest-driven content-repo render wrapper
 │   ├── render-diagrams.sh  Batch render Mermaid .mmd files and fences
 │   ├── render-decks.sh     Render Quarto .qmd decks to PowerPoint + QA gallery
 │   └── lint-decks.py       Deck gate: source↔render pairing and package integrity
@@ -110,6 +111,24 @@ bash scripts/build-docs.sh /path/to/content-repo
 
 The script auto-detects `vars/org.yaml` and `assets/logo/logo.png` in the
 content directory and passes them to `docx-build`.
+
+### Build manifest-managed documents from the content repo root
+
+When a content repo includes `manifests/render-manifest.yaml`, run the toolkit
+wrapper from the content repo root:
+
+```bash
+python3 ../dac-toolkit/scripts/docx_manifest.py list --content-root . --manifest manifests/render-manifest.yaml
+python3 ../dac-toolkit/scripts/docx_manifest.py validate --content-root . --manifest manifests/render-manifest.yaml
+python3 ../dac-toolkit/scripts/docx_manifest.py render --content-root . --manifest manifests/render-manifest.yaml
+```
+
+The render wrapper:
+
+- resolves manifest paths relative to the content repo
+- falls back to `vars/org.yaml` and `assets/logo/logo.png` when present
+- creates a local `.venv-docx-render/` and installs `docx-build` automatically if needed
+- rewrites Kroki-supported fenced diagrams to generated PNG assets before calling `docx-build`
 
 ### Build a single document
 
