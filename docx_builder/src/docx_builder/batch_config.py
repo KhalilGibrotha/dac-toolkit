@@ -86,6 +86,7 @@ class BatchConfig:
     export_root: str          # resolved absolute path
     scan: list[str]           # resolved absolute paths
     exclude: list[str]        # resolved absolute paths
+    exclude_names: list[str]  # bare names, matched at any depth
     org: Optional[str]        # resolved absolute path, or None
     logo: Optional[str]       # resolved absolute path, or None
     options: BatchOptions
@@ -172,7 +173,27 @@ def load_config(path: Optional[str] = None) -> BatchConfig:
     exclude_raw = raw.get('exclude') or []
     if isinstance(exclude_raw, str):
         exclude_raw = [exclude_raw]    # single string → one-element list
-    exclude = [os.path.normpath(os.path.join(config_dir, str(e))) for e in exclude_raw]
+
+    # An exclude entry is read one of two ways:
+    #
+    #   'initiatives/old/'  contains a separator -> a PATH, rooted at config_dir
+    #   'archive'           a bare name          -> matched at ANY depth
+    #
+    # The bare-name form exists because the natural thing to write is 'archive/',
+    # meaning "archived material wherever it lives". Resolving that as a path
+    # produced <repo>/archive, which usually does not exist, so nested archive
+    # folders were scanned anyway - and build-docs.sh, which prunes */archive/*
+    # at any depth, disagreed with this tool about what gets published.
+    exclude: list[str] = []
+    exclude_names: list[str] = []
+    for e in exclude_raw:
+        entry = str(e).strip().rstrip('/' + os.sep)
+        if not entry:
+            continue
+        if '/' in entry or os.sep in entry:
+            exclude.append(os.path.normpath(os.path.join(config_dir, entry)))
+        else:
+            exclude_names.append(entry)
 
     org_raw = raw.get('org')
     if org_raw:
@@ -221,6 +242,7 @@ def load_config(path: Optional[str] = None) -> BatchConfig:
         export_root=export_root,
         scan=scan,
         exclude=exclude,
+        exclude_names=exclude_names,
         org=org,
         logo=logo,
         options=options,
