@@ -8,6 +8,7 @@ Config schema (docx-build.yml):
 
     export_root: exports/          # required — root folder for DOCX output
     org: vars/org.yaml             # optional — org identity YAML (same as --org flag)
+    logo: assets/logo/logo.png     # optional — cover logo image (same as --logo flag)
     layout: status                 # optional — 'status' (default) or 'mirror'
 
     scan:                          # required — at least one entry
@@ -26,6 +27,14 @@ Config schema (docx-build.yml):
       skip_informational: false    # default: false — render status: Informational docs
 
 Paths in scan and exclude are resolved relative to the config file's directory.
+
+Logo
+────
+    When the 'logo' key is absent, assets/logo/logo.png relative to the config
+    file's directory is used if it exists — the same convention build-docs.sh
+    and docx_manifest.py already auto-detect, so a repo that follows the
+    recommended shape gets its logo on every cover without any config. When no
+    logo is found the cover falls back to the org name as styled text.
 
 Layout
 ──────
@@ -78,6 +87,7 @@ class BatchConfig:
     scan: list[str]           # resolved absolute paths
     exclude: list[str]        # resolved absolute paths
     org: Optional[str]        # resolved absolute path, or None
+    logo: Optional[str]       # resolved absolute path, or None
     options: BatchOptions
     config_path: str          # absolute path to the config file itself
     config_dir: str           # directory containing the config file
@@ -175,6 +185,25 @@ def load_config(path: Optional[str] = None) -> BatchConfig:
     else:
         org = None
 
+    logo_raw = raw.get('logo')
+    if logo_raw:
+        # An explicit key pointing at a missing file is a config error, same as
+        # 'org': failing fast beats silently rendering a whole batch of covers
+        # with the text fallback.
+        logo_resolved = os.path.normpath(os.path.join(config_dir, str(logo_raw)))
+        if not os.path.isfile(logo_resolved):
+            raise ConfigError(
+                f"logo file specified in config not found: {logo_resolved}"
+            )
+        logo: Optional[str] = logo_resolved
+    else:
+        # Auto-detect the conventional location (see "Logo" in the module
+        # docstring). Absence is not an error — the cover has a text fallback.
+        candidate = os.path.normpath(
+            os.path.join(config_dir, 'assets', 'logo', 'logo.png')
+        )
+        logo = candidate if os.path.isfile(candidate) else None
+
     layout = str(raw.get('layout') or DEFAULT_LAYOUT).strip().lower()
     if layout not in LAYOUTS:
         raise ConfigError(
@@ -193,6 +222,7 @@ def load_config(path: Optional[str] = None) -> BatchConfig:
         scan=scan,
         exclude=exclude,
         org=org,
+        logo=logo,
         options=options,
         config_path=path,
         config_dir=config_dir,
