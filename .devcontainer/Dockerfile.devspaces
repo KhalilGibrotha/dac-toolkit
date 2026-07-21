@@ -36,6 +36,28 @@ ARG PANDOC_VERSION=3.6.4
 RUN curl -fsSL "https://github.com/jgm/pandoc/releases/download/${PANDOC_VERSION}/pandoc-${PANDOC_VERSION}-linux-amd64.tar.gz" \
     | tar xz --strip-components=2 -C /usr/local/bin "pandoc-${PANDOC_VERSION}/bin/pandoc"
 
+# ── Quarto (presentation + document rendering) ───────────────────────────────
+# Ships its own bundled pandoc and deno; executable Python chunks use the
+# jupyter installed with the Python deps below. Extracted whole so share/ sits
+# beside bin/.
+ARG QUARTO_VERSION=1.6.40
+RUN curl -fsSL "https://github.com/quarto-dev/quarto-cli/releases/download/v${QUARTO_VERSION}/quarto-${QUARTO_VERSION}-linux-amd64.tar.gz" \
+    | tar xz -C /opt \
+    && ln -s /opt/quarto-${QUARTO_VERSION}/bin/quarto /usr/local/bin/quarto
+
+# ── LibreOffice: deliberately NOT installed ─────────────────────────────
+# Verified 2026-07-20: libreoffice-impress is not available from any UBI9 repo
+# (ubi-9-appstream, ubi-9-baseos, ubi-9-codeready-builder all report "No
+# matching Packages"). A dnf install here can never succeed, so it is omitted
+# rather than left as a silently failing layer.
+#
+# Consequence: render-decks.sh renders .pptx normally in this image; only the
+# --qa slide-image gallery (pptx -> pdf -> png) is unavailable, and the script
+# reports the skipped gallery and continues rather than failing.
+#
+# To add it, install from The Document Foundation RPM tarball (~250MB; soffice
+# lands under /opt/libreoffice<ver>/program/) rather than via dnf.
+
 # ── Node.js ──────────────────────────────────────────────────────────────────
 # The UBI9 python-312 base image includes Node.js (22.x) from the appstream
 # module. This is sufficient for mmdc/mermaid-cli. No additional install needed.
@@ -69,7 +91,12 @@ RUN pip install --no-cache-dir \
     "python-docx>=1.1.0" \
     "PyYAML>=6.0" \
     "mistune>=3.0" \
-    "lxml>=4.9"
+    "lxml>=4.9" \
+    # deck rendering: jupyter runs Quarto's executable Python chunks;
+    # matplotlib draws figures; pymupdf rasterizes slides for the QA gallery
+    "jupyter>=1.0" \
+    "matplotlib>=3.8" \
+    "pymupdf>=1.24"
 
 # ── OpenShift arbitrary UID support ──────────────────────────────────────────
 # OpenShift runs containers with a random UID in the root group (GID 0).

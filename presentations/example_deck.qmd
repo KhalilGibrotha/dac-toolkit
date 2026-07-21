@@ -1,0 +1,95 @@
+---
+title: "Example Deck"
+subtitle: "A generic starting point for markdown-source presentations"
+format:
+  pptx:
+    reference-doc: "templates/example-dark.pptx"
+    highlight-style: "themes/deck-code.theme"
+    monofont: Consolas
+execute:
+  echo: false
+  warning: false
+jupyter: python3
+---
+
+## A bullet slide is just a heading and a list
+
+- Each `## Heading` starts a new slide at `slide-level: 2`
+- Keep one idea per slide; write the title as a claim, not a label
+- Put the narrative in speaker notes, not on the slide
+
+::: {.notes}
+Speaker notes live in a `::: {.notes}` block and never appear on the
+slide. This deck is the toolkit's rendering smoke test — if it builds,
+your environment can render presentations.
+:::
+
+## Figures come from executable Python chunks
+
+```{python}
+#| fig-width: 10.5
+#| fig-height: 4.2
+import sys, pathlib
+sys.path.insert(0, str(pathlib.Path("assets").resolve()))
+import numpy as np
+import matplotlib.pyplot as plt
+import deck_mpl
+from deck_mpl import BLUE, AMBER, GREEN, INK, MUTED, GROUND
+
+deck_mpl.use()
+fig, ax = plt.subplots(figsize=(10.5, 4.2))
+ax.grid(False)
+
+x = np.linspace(0, 10, 200)
+ax.plot(x, np.sin(x) + 2.5, color=BLUE, label="series one")
+ax.plot(x, np.cos(x) + 2.5, color=AMBER, label="series two")
+ax.plot(x, 0.25 * x, color=GREEN, label="series three")
+
+for c, y, name in [(BLUE, np.sin(10) + 2.5, "series one"),
+                   (AMBER, np.cos(10) + 2.5, "series two"),
+                   (GREEN, 2.5, "series three")]:
+    ax.annotate(name, xy=(10, y), xytext=(9.9, y), ha="right",
+                va="center", color=INK, fontsize=11)
+
+ax.set_yticks([]); ax.set_xticks([])
+ax.set_xlabel("x", color=MUTED, loc="right")
+ax.set_xlim(0, 11)
+plt.tight_layout(); plt.show()
+```
+
+::: {.notes}
+The chunk renders through `deck_mpl.use()`, which applies the palette and
+emits a transparent PNG that composites on the slide ground. Swap the
+palette in `assets/deck_mpl.py` for your brand.
+:::
+
+## Code blocks carry syntax highlighting
+
+```bash
+# rendered with the deck-code highlight theme
+render() {
+  quarto render deck.qmd --to pptx
+}
+```
+
+- Fenced code blocks pick up `highlight-style` from the front matter
+- Monospace font is set by `monofont`
+
+::: {.notes}
+The highlight theme is a Skylighting KDE-format JSON file. Colors here are
+a generic terminal palette — edit `themes/deck-code.theme` to taste.
+:::
+
+## Tables render natively
+
+| Element | Front-matter key | Notes |
+|---|---|---|
+| Template | `reference-doc` | your `.pptx` with masters and layouts |
+| Code colors | `highlight-style` | a `.theme` file |
+| Mono font | `monofont` | e.g. Consolas |
+
+::: {.notes}
+Keep a table OR bullets on a slide, not both — pandoc splits a slide that
+carries a table and a list into two slides. This slide keeps its list in
+the notes for that reason.
+:::
