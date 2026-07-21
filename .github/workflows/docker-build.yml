@@ -67,6 +67,15 @@ jobs:
 
       # ignore-unfixed keeps the gate on things we can actually act on; an
       # unfixable base CVE should not block every build.
+      #
+      # skip-files: esbuild is a build-time JS bundler vendored inside Quarto.
+      # Its findings are Go stdlib CVEs compiled into that binary; in this image
+      # it only ever bundles our own document and deck sources, so the network
+      # and untrusted-input paths those CVEs sit on are not reachable here.
+      # Clearing them means upgrading Quarto, which changes pptx rendering and
+      # so requires a deck re-render and visual QA - tracked separately. The
+      # path is deliberately version-pinned so a Quarto bump invalidates this
+      # skip and forces the question to be re-asked.
       - name: Vulnerability gate
         uses: aquasecurity/trivy-action@v0.36.0
         with:
@@ -75,6 +84,7 @@ jobs:
           exit-code: '1'
           ignore-unfixed: true
           severity: HIGH,CRITICAL
+          skip-files: /opt/quarto-1.6.40/bin/tools/x86_64/esbuild
 
       - name: Push image
         id: push
