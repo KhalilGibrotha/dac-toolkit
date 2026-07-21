@@ -114,19 +114,37 @@ jobs:
           subject-digest: ${{ steps.push.outputs.digest }}
           push-to-registry: true
 
+      # CycloneDX rather than SPDX: this image bundles jupyterlab, whose node
+      # test fixtures push an SPDX SBOM past GitHub's 16 MiB attestation
+      # predicate cap. CycloneDX is materially more compact for the same
+      # content.
       - name: Generate SBOM
         uses: anchore/sbom-action@v0
         with:
           image: ${{ env.IMAGE }}@${{ steps.push.outputs.digest }}
-          format: spdx-json
-          output-file: sbom.spdx.json
+          format: cyclonedx-json
+          output-file: sbom.cdx.json
 
+      # Always retain the SBOM, independent of whether it fits the attestation
+      # predicate cap. This is the durable copy.
+      - name: Upload SBOM artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: sbom.cdx.json
+          retention-days: 90
+
+      # continue-on-error: the 16 MiB predicate cap is a hard GitHub limit and
+      # depends on how large the dependency graph happens to be. A registry SBOM
+      # attestation is worth attempting, but it must not block publishing or
+      # signing - the uploaded artifact above is the guaranteed copy.
       - name: Attest SBOM
+        continue-on-error: true
         uses: actions/attest-sbom@v2
         with:
           subject-name: ${{ env.IMAGE }}
           subject-digest: ${{ steps.push.outputs.digest }}
-          sbom-path: sbom.spdx.json
+          sbom-path: sbom.cdx.json
           push-to-registry: true
 
       - name: Install cosign
