@@ -1,0 +1,23 @@
+version: 2
+
+# The Dev Spaces image pins its UBI base by digest for reproducible builds.
+# Dependabot is what keeps that pin current — without it, a digest pin silently
+# becomes a stale base. Pair with the CI vulnerability gate in docker-build.yml.
+updates:
+  - package-ecosystem: docker
+    directory: /.devcontainer
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "chore(image)"
+    labels:
+      - dependencies
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "chore(ci)"
+    labels:
+      - dependencies

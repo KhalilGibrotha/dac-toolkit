@@ -5,7 +5,12 @@
 #   podman build -f .devcontainer/Dockerfile.devspaces -t <registry>/dac-toolkit:latest .
 #   podman push <registry>/dac-toolkit:latest
 #
-FROM registry.access.redhat.com/ubi9/python-312:latest
+# Base pinned by digest so a rebuild reproduces the same bytes. The digest is a
+# multi-arch manifest list, so multi-arch builds still work. The tag is recorded
+# for humans only; Dependabot bumps the digest (see .github/dependabot.yml), and
+# the CI vulnerability gate catches the base going stale between bumps.
+# Resolved from ubi9/python-312:latest on 2026-07-21.
+FROM registry.access.redhat.com/ubi9/python-312@sha256:cc8ec211f2e92279db55b1ee286b7eca55d9fb745fe4543a03d5868bfad0ba37
 
 USER 0
 
@@ -66,7 +71,8 @@ RUN curl -fsSL "https://github.com/quarto-dev/quarto-cli/releases/download/v${QU
 
 # ── Mermaid CLI (mmdc) — installs Puppeteer + bundled Chromium ───────────────
 ENV PUPPETEER_CACHE_DIR=/opt/puppeteer-cache
-RUN npm install -g @mermaid-js/mermaid-cli \
+ARG MERMAID_CLI_VERSION=11.16.0
+RUN npm install -g "@mermaid-js/mermaid-cli@${MERMAID_CLI_VERSION}" \
     && npm cache clean --force \
     && chmod -R g+rx /opt/puppeteer-cache
 

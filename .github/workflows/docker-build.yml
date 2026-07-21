@@ -7,7 +7,11 @@ on:
     paths:
       - '.devcontainer/Dockerfile.devspaces'
       - '.devcontainer/**'
+      - '.github/workflows/docker-build.yml'
   workflow_dispatch:
+
+env:
+  IMAGE: ghcr.io/khalilgibrotha/dac-toolkit
 
 jobs:
   build-and-push:
@@ -15,6 +19,8 @@ jobs:
     permissions:
       contents: read
       packages: write
+      id-token: write        # cosign keyless signing + attestation OIDC
+      attestations: write    # actions/attest-*
 
     steps:
       - name: Checkout repository
@@ -27,15 +33,112 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push Docker image
+      # Generates the OCI annotation set (source, revision, created, ...) so the
+      # image identifies itself instead of inheriting the UBI base's labels.
+      - name: Derive tags and OCI labels
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=raw,value=latest
+            type=raw,value=${{ github.sha }}
+          labels: |
+            org.opencontainers.image.title=dac-toolkit
+            org.opencontainers.image.description=Documentation-as-code toolchain (docx_builder, Quarto, Pandoc, Mermaid CLI, Vale) for OpenShift Dev Spaces
+            org.opencontainers.image.licenses=MIT
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Build once into the local daemon so the scan gates publication rather
+      # than trailing it. The push below reuses this layer cache.
+      - name: Build for scanning
         uses: docker/build-push-action@v5
         with:
-          # Repo root, not .devcontainer/ — the Dockerfile copies
-          # .vale-bootstrap.ini from the repo root, matching the build
-          # command documented in Dockerfile.devspaces itself.
+          context: .
+          file: .devcontainer/Dockerfile.devspaces
+          load: true
+          push: false
+          tags: dac-toolkit:scan
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # ignore-unfixed keeps the gate on things we can actually act on; an
+      # unfixable base CVE should not block every build.
+      - name: Vulnerability gate
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: dac-toolkit:scan
+          format: table
+          exit-code: '1'
+          ignore-unfixed: true
+          severity: HIGH,CRITICAL
+
+      - name: Push image
+        id: push
+        uses: docker/build-push-action@v5
+        with:
           context: .
           file: .devcontainer/Dockerfile.devspaces
           push: true
-          tags: |
-            ghcr.io/khalilgibrotha/dac-toolkit:latest
-            ghcr.io/khalilgibrotha/dac-toolkit:${{ github.sha }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-name: ${{ env.IMAGE }}
+          subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true
+
+      - name: Generate SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          image: ${{ env.IMAGE }}@${{ steps.push.outputs.digest }}
+          format: spdx-json
+          output-file: sbom.spdx.json
+
+      - name: Attest SBOM
+        uses: actions/attest-sbom@v2
+        with:
+          subject-name: ${{ env.IMAGE }}
+          subject-digest: ${{ steps.push.outputs.digest }}
+          sbom-path: sbom.spdx.json
+          push-to-registry: true
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Sign image (keyless, GitHub OIDC)
+        run: cosign sign --yes "${IMAGE}@${DIGEST}"
+        env:
+          IMAGE: ${{ env.IMAGE }}
+          DIGEST: ${{ steps.push.outputs.digest }}
+
+      # The digest is what consumers should pin and what promotion copies.
+      - name: Publish digest to job summary
+        run: |
+          {
+            echo "### Published image"
+            echo
+            echo "Pin this digest in content-repo devfiles and promote by it:"
+            echo
+            echo '```'
+            echo "${IMAGE}@${DIGEST}"
+            echo '```'
+            echo
+            echo "Verify signature:"
+            echo
+            echo '```bash'
+            echo "cosign verify ${IMAGE}@${DIGEST} \\"
+            echo "  --certificate-identity-regexp '^https://github.com/${GITHUB_REPOSITORY}/' \\"
+            echo "  --certificate-oidc-issuer https://token.actions.githubusercontent.com"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+        env:
+          IMAGE: ${{ env.IMAGE }}
+          DIGEST: ${{ steps.push.outputs.digest }}
