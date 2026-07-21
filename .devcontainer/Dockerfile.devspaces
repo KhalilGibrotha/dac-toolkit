@@ -98,6 +98,22 @@ RUN pip install --no-cache-dir \
     "matplotlib>=3.8" \
     "pymupdf>=1.24"
 
+# ── Bake the toolkit itself into the image ───────────────────────────────────
+# The image carries docx_builder (installed) plus the scripts and the
+# presentations example, so a CONTENT repo consumes the image without cloning
+# the toolkit source. Build context is the repo root (see the build command in
+# the header and the docker-build workflow). docx_builder deps are already
+# installed above, so --no-deps keeps this offline. Scripts go on PATH; the
+# render scripts resolve their bundled example relative to /opt/dac-toolkit.
+COPY docx_builder /opt/dac-toolkit/docx_builder
+COPY scripts /opt/dac-toolkit/scripts
+COPY presentations /opt/dac-toolkit/presentations
+COPY diagrams /opt/dac-toolkit/diagrams
+RUN pip install --no-cache-dir --no-deps /opt/dac-toolkit/docx_builder \
+    && chmod -R g+rx /opt/dac-toolkit
+ENV DAC_TOOLKIT_HOME=/opt/dac-toolkit
+ENV PATH="/opt/dac-toolkit/scripts:${PATH}"
+
 # ── OpenShift arbitrary UID support ──────────────────────────────────────────
 # OpenShift runs containers with a random UID in the root group (GID 0).
 # All directories the process writes to must be group-writable.
