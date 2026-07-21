@@ -1,5 +1,19 @@
 """
-batch_output.py — Status-based output folder management and file naming.
+batch_output.py — Output folder management and file naming.
+
+Two layouts are supported, selected by the 'layout' key in docx-build.yml.
+
+    status  (default)  exports/<Status>/<name>_v<version>.docx
+                       Groups by review state; the path encodes status and
+                       version, so both change as a document progresses.
+
+    mirror             exports/<source path>/<name>.docx
+                       Reproduces the source tree. No status folder, no version
+                       suffix - the path is stable across promotions and version
+                       bumps, so syncing the export folder to a document library
+                       updates files in place instead of leaving duplicates.
+
+The rest of this docstring describes the 'status' layout.
 
 Rendered DOCX files are organised into subfolders of export_root by document
 status. When a document's status changes between renders, the old file is
@@ -53,24 +67,55 @@ def status_to_folder(status: str) -> str:
     return status.replace(' ', '-')
 
 
-def resolve_output_path(export_root: str, md_path: str, status: str, version: str) -> str:
+def resolve_output_path(
+    export_root: str,
+    md_path: str,
+    status: str,
+    version: str,
+    layout: str = 'status',
+    content_root: Optional[str] = None,
+) -> str:
     """
     Compute the full output path for a rendered DOCX.
 
     Args:
-        export_root: absolute path to the export root directory.
-        md_path:     absolute path to the source .md file.
-        status:      document status (used for subfolder selection).
-        version:     document version (appended to filename).
+        export_root:  absolute path to the export root directory.
+        md_path:      absolute path to the source .md file.
+        status:       document status (subfolder selection in 'status' layout).
+        version:      document version (filename suffix in 'status' layout).
+        layout:       'status' (default) or 'mirror'. See module docstring.
+        content_root: repo root the source tree is relative to. Required for
+                      'mirror'; unused by 'status'.
 
     Returns:
-        Absolute path where the DOCX should be saved, e.g.:
-        /repo/exports/Draft/overview_aap_architecture_v0.3.docx
+        Absolute path where the DOCX should be saved, e.g.
+        status: /repo/exports/Draft/overview_aap_architecture_v0.3.docx
+        mirror: /repo/exports/initiatives/aap/overview_aap_architecture.docx
+
+    Raises:
+        ValueError: unknown layout, or 'mirror' without content_root.
     """
     stem = os.path.splitext(os.path.basename(md_path))[0]
-    folder = os.path.join(export_root, status_to_folder(status))
-    filename = f"{stem}_v{version}.docx"
-    return os.path.join(folder, filename)
+
+    if layout == 'status':
+        folder = os.path.join(export_root, status_to_folder(status))
+        return os.path.join(folder, f"{stem}_v{version}.docx")
+
+    if layout != 'mirror':
+        raise ValueError(f"unknown layout: {layout!r}")
+    if not content_root:
+        raise ValueError("layout 'mirror' requires content_root")
+
+    # Mirror deliberately omits both the status folder and the version suffix.
+    # The point of this layout is a path that does NOT change when a document is
+    # promoted or revised, so that syncing the export folder updates files in
+    # place rather than accumulating relocated or renamed duplicates.
+    rel_dir = os.path.relpath(os.path.dirname(md_path), content_root)
+    if rel_dir == os.curdir or rel_dir.startswith(os.pardir):
+        # Source sits at, or outside, the content root. Fall back to flat rather
+        # than writing outside export_root.
+        rel_dir = ''
+    return os.path.join(export_root, rel_dir, f"{stem}.docx")
 
 
 def ensure_output_dir(output_path: str) -> None:

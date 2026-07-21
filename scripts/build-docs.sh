@@ -18,6 +18,12 @@ shift 2>/dev/null || true
 # Which top-level directories carry publishable content is a property of the
 # content repo, not of this engine. Override with DAC_DOC_DIRS (space separated)
 # to publish a different set without editing the toolkit.
+#
+# NOTE: docx-build-all is the newer batch path. It reads the same set from the
+# 'scan' key of docx-build.yml and additionally supports exclusions, status
+# filtering, an incremental render index, and both output layouts. This default
+# is kept identical to the documented scan list so the two cannot disagree about
+# what gets published. If you change one, change the other.
 DOC_DIRS="${DAC_DOC_DIRS:-docs initiatives patterns governance decisions references}"
 
 has_content() {
