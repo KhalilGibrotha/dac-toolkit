@@ -5,8 +5,15 @@ on:
     branches:
       - main
     paths:
-      - '.devcontainer/Dockerfile.devspaces'
+      # Everything the image bakes in. scripts/, docx_builder/, presentations/
+      # and diagrams/ are COPYied into /opt/dac-toolkit, so a change to any of
+      # them must republish - watching only .devcontainer/ meant script fixes
+      # silently never reached the image.
       - '.devcontainer/**'
+      - 'scripts/**'
+      - 'docx_builder/**'
+      - 'presentations/**'
+      - 'diagrams/**'
       - '.github/workflows/docker-build.yml'
   workflow_dispatch:
 
