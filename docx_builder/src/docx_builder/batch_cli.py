@@ -50,7 +50,29 @@ def _load_org_yaml(path: str) -> dict:
     return data.get('org', data)
 
 
+def _force_utf8_console() -> None:
+    """
+    Make stdout/stderr tolerate non-ASCII.
+
+    Windows consoles default to a legacy code page (cp1252) that cannot encode
+    characters which legitimately appear in document titles, file paths, and in
+    this tool's own progress output. Without this, printing the line that
+    reports a *successful* render raises UnicodeEncodeError, the surrounding
+    except block catches it, and the document is reported as FAILED and written
+    to the render index as an error - despite the DOCX having been produced
+    correctly. Replace rather than fail: a mangled character in a console
+    message is never worth losing a build over.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding='utf-8', errors='replace')
+        except (AttributeError, OSError, ValueError):
+            pass    # not a reconfigurable stream (redirected, or older Python)
+
+
 def main():
+    _force_utf8_console()
+
     parser = argparse.ArgumentParser(
         prog="docx-build-all",
         description="Batch render Markdown documentation to DOCX.",
@@ -184,7 +206,17 @@ parent directory. See the dac-toolkit README for the config schema.
             print(f"SKIP     {doc.rel_path}")
             continue
 
-        # MOVED — remove old output before rendering to new location
+        # Resolve the new output path FIRST, so we can tell whether the previous
+        # output is genuinely superseded. Under the 'mirror' layout a status
+        # change does not move the file, so removing before resolving would
+        # delete the very file about to be written — and lose it outright if the
+        # render then failed.
+        output_path = resolve_output_path(
+            config.export_root, doc.path, doc.status, doc.version,
+            layout=config.layout, content_root=config.config_dir,
+        )
+
+        # MOVED — remove the superseded output, but only if it is elsewhere
         old_output_abs = None
         old_status     = None
         if outcome == RenderIndex.OUTCOME_MOVED and existing:
@@ -192,14 +224,10 @@ parent directory. See the dac-toolkit README for the config schema.
             # Index stores paths relative to config_dir; resolve to absolute
             old_output_abs = os.path.join(config.config_dir, existing.output) \
                 if not os.path.isabs(existing.output) else existing.output
-            warn = remove_old_output(old_output_abs, doc.rel_path)
-            if warn:
-                result_warnings.append(warn)
-
-        # Resolve output path
-        output_path = resolve_output_path(
-            config.export_root, doc.path, doc.status, doc.version
-        )
+            if os.path.normpath(old_output_abs) != os.path.normpath(output_path):
+                warn = remove_old_output(old_output_abs, doc.rel_path)
+                if warn:
+                    result_warnings.append(warn)
 
         # Render
         try:
