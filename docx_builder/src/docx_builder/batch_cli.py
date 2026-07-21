@@ -5,7 +5,7 @@ Registered in pyproject.toml as:
     docx-build-all = "docx_builder.batch_cli:main"
 
 Usage:
-    docx-build-all [--config PATH] [--org PATH] [--dry-run] [--force] [--report-file PATH]
+    docx-build-all [--config PATH] [--org PATH] [--logo PATH] [--dry-run] [--force] [--report-file PATH]
 
 Execution flow:
     1. Load and validate config (abort with exit 2 on config error)
@@ -102,6 +102,13 @@ parent directory. See the dac-toolkit README for the config schema.
              "Takes precedence over the 'org' key in docx-build.yml.",
     )
     parser.add_argument(
+        '--logo',
+        default=None,
+        metavar='PATH',
+        help="Path to logo image (PNG or JPG) for cover pages. "
+             "Takes precedence over the 'logo' key in docx-build.yml.",
+    )
+    parser.add_argument(
         '--dry-run',
         action='store_true',
         help="Scan and report what would be rendered; do not write any files.",
@@ -155,6 +162,20 @@ parent directory. See the dac-toolkit README for the config schema.
         except (OSError, yaml.YAMLError) as e:
             print(f"Error: cannot load org file {org_path}: {e}", file=sys.stderr)
             sys.exit(2)
+
+    # ── 3b. Resolve logo (CLI --logo takes precedence over config) ────────────
+    # Config-level resolution (explicit key or auto-detected assets/logo/
+    # logo.png) already happened in load_config; only an explicit CLI override
+    # needs checking here. A missing file is an error, not a warning: silently
+    # falling back to the text cover on every document in a batch is exactly
+    # the gap this flag exists to close.
+    if args.logo:
+        logo_path = os.path.abspath(args.logo)
+        if not os.path.isfile(logo_path):
+            print(f"Error: logo file not found: {logo_path}", file=sys.stderr)
+            sys.exit(2)
+    else:
+        logo_path = config.logo
 
     # ── 4. Scan ───────────────────────────────────────────────────────────────
     docs, scan_warnings = scan(config)
@@ -234,6 +255,7 @@ parent directory. See the dac-toolkit README for the config schema.
             ensure_output_dir(output_path)
             build_document(
                 doc.path,
+                logo_path=logo_path,
                 output_path=output_path,
                 org_overrides=org_overrides,
             )

@@ -22,8 +22,9 @@ content-repo/
 │       └── logo.png
 ├── vars/
 │   └── org.yaml
+├── docx-build.yml            # scan-based selection (docx-build-all)
 ├── manifests/
-│   └── render-manifest.yaml
+│   └── render-manifest.yaml  # curated selection (docx_manifest.py)
 └── .docx-work/
 ```
 
@@ -41,6 +42,9 @@ conventions like these over one-off path wiring.
 
 - Preferred shared path: `assets/logo/logo.png`
 - JPG should also remain supported when PNG is not available
+- All render paths (`build-docs.sh`, `docx-build-all`, `docx_manifest.py`)
+  auto-detect this path, so a repo that follows the convention gets its logo
+  on every cover with no configuration
 
 ### Output naming
 
@@ -54,6 +58,37 @@ conventions like these over one-off path wiring.
   structure
 - Wrapper tooling may provision this area differently by platform, but the
   resulting shape should stay predictable to the user
+
+## Content Selection: Two First-Class Approaches
+
+A content repo declares what gets rendered in one of two ways. Both are
+supported long-term — they answer different governance questions, and a repo
+picks the one that matches how it decides what is publishable.
+
+### Scan (`docx-build.yml` + `docx-build-all`)
+
+The repo's working set is the publication set. `docx-build.yml` names the
+folders in scope (`scan:`), carve-outs (`exclude:`), and status filters;
+everything that qualifies renders. This suits repos that publish the whole
+working set and sync `exports/` to a document library as a folder — the
+incremental render index and the `mirror` layout exist for exactly that
+workflow.
+
+### Manifest (`manifests/render-manifest.yaml` + `docx_manifest.py`)
+
+Publication is curated. The manifest is an explicit, reviewable list of
+documents, and the list itself is the governance artifact: a diff to the
+manifest *is* the record of a publication decision. This suits repos where a
+deliberate subset ships, where documents need per-document org/logo/output
+overrides, or where diagram fences should be pre-rendered to committed PNG
+assets (the wrapper rewrites any Kroki-supported fence type; the builder also
+renders those fences inline on every path).
+
+`build-docs.sh` remains the original zero-config shell path — conventional
+folders, everything with front matter — and stays supported alongside both.
+
+See the toolkit README for a full capability comparison and worked examples
+of each config.
 
 ## Manifest Direction
 

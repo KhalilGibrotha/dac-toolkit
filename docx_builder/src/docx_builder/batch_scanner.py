@@ -60,13 +60,30 @@ def _rel(path: str, base: str) -> str:
         return path
 
 
-def _is_excluded(abs_path: str, exclude_abs: list[str]) -> bool:
-    """Return True if abs_path is at or under any of the exclude_abs roots."""
+def _is_excluded(
+    abs_path: str,
+    exclude_abs: list[str],
+    exclude_names: list[str] | None = None,
+) -> bool:
+    """
+    Return True if abs_path is excluded.
+
+    Two forms, matching the two ways an exclude entry can be written:
+      - exclude_abs:   path roots. Excluded if abs_path is at or under one.
+      - exclude_names: bare names. Excluded if any path component matches,
+                       at any depth - so 'archive' catches
+                       initiatives/<x>/archive/ as well as a top-level one.
+    """
     norm = os.path.normpath(abs_path)
     for excl in exclude_abs:
         excl_norm = os.path.normpath(excl)
         if norm == excl_norm or norm.startswith(excl_norm + os.sep):
             return True
+    if exclude_names:
+        parts = set(norm.split(os.sep))
+        for name in exclude_names:
+            if name in parts:
+                return True
     return False
 
 
@@ -95,13 +112,14 @@ def scan(config: BatchConfig) -> tuple[list[ScannedDoc], list[str]]:
             # Prune excluded directories in-place so os.walk never descends into them
             dirnames[:] = sorted(
                 d for d in dirnames
-                if not _is_excluded(os.path.join(dirpath, d), config.exclude)
+                if not _is_excluded(os.path.join(dirpath, d), config.exclude,
+                                    config.exclude_names)
             )
 
             for fname in sorted(f for f in filenames if f.endswith('.md')):
                 fpath = os.path.normpath(os.path.join(dirpath, fname))
 
-                if _is_excluded(fpath, config.exclude):
+                if _is_excluded(fpath, config.exclude, config.exclude_names):
                     continue
 
                 rel = _rel(fpath, config.config_dir)

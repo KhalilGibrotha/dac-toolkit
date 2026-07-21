@@ -20,6 +20,9 @@ import yaml
 TOOLKIT_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_MANIFEST_NAME = Path("manifests") / "render-manifest.yaml"
 DEFAULT_KROKI_URL = "http://127.0.0.1:8000"
+# KEEP IN STEP with KROKI_LANGUAGE_TYPES in
+# docx_builder/src/docx_builder/diagrams.py (scripts/ is not an importable
+# package, so the mapping is duplicated there).
 SUPPORTED_DIAGRAM_TYPES = {
     "mermaid": "mermaid",
     "plantuml": "plantuml",
@@ -48,6 +51,7 @@ SUPPORTED_DIAGRAM_TYPES = {
     "excalidraw": "excalidraw",
     "bytefield": "bytefield",
     "goat": "goat",
+    "symbolator": "symbolator",
 }
 FENCE_RE = re.compile(r"```([A-Za-z0-9_-]+)[^\n]*\n(.*?)\n```", re.DOTALL)
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
