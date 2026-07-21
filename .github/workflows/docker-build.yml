@@ -140,7 +140,7 @@ jobs:
       # signing - the uploaded artifact above is the guaranteed copy.
       - name: Attest SBOM
         continue-on-error: true
-        uses: actions/attest-sbom@v2
+        uses: actions/attest-sbom@v4
         with:
           subject-name: ${{ env.IMAGE }}
           subject-digest: ${{ steps.push.outputs.digest }}
