@@ -15,6 +15,47 @@ set -euo pipefail
 CONTENT_DIR="${1:-${WORKSPACE:-$(pwd)}}"
 shift 2>/dev/null || true
 
+# Which top-level directories carry publishable content is a property of the
+# content repo, not of this engine. Override with DAC_DOC_DIRS (space separated)
+# to publish a different set without editing the toolkit.
+DOC_DIRS="${DAC_DOC_DIRS:-docs initiatives patterns governance decisions references}"
+
+has_content() {
+  local dir="$1" d
+  for d in $DOC_DIRS; do
+    [[ -d "$dir/$d" ]] && return 0
+  done
+  return 1
+}
+
+# Resolve the content root BEFORE anything walks the filesystem. CONTENT_DIR
+# defaults to the current directory, but a Dev Spaces terminal opens in
+# /projects - the PARENT of the repo. Left unresolved, the diagram phase would
+# then recurse through every repo in the workspace and the build phase would
+# find nothing, with no clear reason why.
+if ! has_content "$CONTENT_DIR"; then
+  candidates=()
+  for entry in "$CONTENT_DIR"/*/; do
+    [[ -d "$entry" ]] || continue
+    if has_content "${entry%/}"; then candidates+=("${entry%/}"); fi
+  done
+
+  if [[ ${#candidates[@]} -eq 1 ]]; then
+    echo "Note: no content directories in $CONTENT_DIR - using ${candidates[0]}"
+    CONTENT_DIR="${candidates[0]}"
+  elif [[ ${#candidates[@]} -eq 0 ]]; then
+    echo "ERROR: no content directories under $CONTENT_DIR" >&2
+    echo "       Looked for: $DOC_DIRS" >&2
+    echo "       Run from a content repo, or pass its path:" >&2
+    echo "         build-docs.sh /path/to/content-repo" >&2
+    exit 1
+  else
+    echo "ERROR: $CONTENT_DIR contains more than one content repo. Name one:" >&2
+    printf '         build-docs.sh %s\n' "${candidates[@]}" >&2
+    exit 1
+  fi
+fi
+
 EXPORTS="$CONTENT_DIR/exports"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
@@ -71,28 +112,19 @@ if [[ $# -gt 0 ]]; then
   # Build a specific file
   build_one "$1"
 else
-  # Which top-level directories carry publishable content is a property of the
-  # content repo, not of this engine. Override with DAC_DOC_DIRS (space
-  # separated) to publish a different set without editing the toolkit.
-  # Directories that do not exist are skipped silently.
-  DOC_DIRS="${DAC_DOC_DIRS:-docs initiatives patterns governance decisions references}"
-
+  # CONTENT_DIR is already resolved and known to hold at least one of DOC_DIRS.
   search_dirs=()
   for d in $DOC_DIRS; do
-    [[ -d "$CONTENT_DIR/$d" ]] && search_dirs+=("$CONTENT_DIR/$d")
+    if [[ -d "$CONTENT_DIR/$d" ]]; then search_dirs+=("$CONTENT_DIR/$d"); fi
   done
 
-  if [[ ${#search_dirs[@]} -eq 0 ]]; then
-    echo "  No content directories found under $CONTENT_DIR (looked for: $DOC_DIRS)"
-  else
-    # Build all content Markdown files (skip READMEs and archived material)
-    while IFS= read -r -d '' md_file; do
-      build_one "$md_file"
-    done < <(find "${search_dirs[@]}" \
-      -name '*.md' -not -name 'README.md' \
-      -not -path '*/.git/*' -not -path '*/archive/*' \
-      -print0 2>/dev/null)
-  fi
+  # Build all content Markdown files (skip READMEs and archived material)
+  while IFS= read -r -d '' md_file; do
+    build_one "$md_file"
+  done < <(find "${search_dirs[@]}" \
+    -name '*.md' -not -name 'README.md' \
+    -not -path '*/.git/*' -not -path '*/archive/*' \
+    -print0 2>/dev/null)
 fi
 
 echo ""
