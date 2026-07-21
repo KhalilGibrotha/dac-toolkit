@@ -2,7 +2,8 @@
 
 Documentation-as-Code toolkit that converts Markdown with YAML front matter into
 styled DOCX documents with cover pages, table of contents, revision history,
-auto-numbered headings, and embedded Mermaid diagrams.
+auto-numbered headings, and embedded diagrams (Mermaid plus any
+Kroki-supported language — PlantUML, Graphviz, D2, and more).
 
 ---
 
@@ -170,6 +171,7 @@ docx-build INPUT [--logo PATH] [--org PATH] [--output PATH]
 | GFM pipe tables | Styled tables with header row and alternating row colors |
 | `![alt](path)` | Embedded images (path relative to source .md file) |
 | `` ```mermaid ``` `` | Mermaid diagrams rendered to PNG and embedded inline |
+| `` ```plantuml ``` `` etc. | Any Kroki-supported diagram fence (PlantUML, Graphviz, D2, ...) rendered to PNG via Kroki — set `DOCX_BUILDER_KROKI_URL` for a self-hosted instance |
 
 ### Heading Numbering
 

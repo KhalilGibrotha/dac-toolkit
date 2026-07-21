@@ -1,39 +1,56 @@
 """
-diagrams.py — Mermaid diagram extraction and rendering for docx_builder.
+diagrams.py — Diagram extraction and rendering for docx_builder.
 
 Pipeline role
 -------------
-Inline Mermaid fences (```mermaid blocks) are extracted from the markdown
-source before the mistune pass and replaced with __MERMAID_N__ placeholders.
+Inline diagram fences — ```mermaid blocks plus any fence whose info string is
+a Kroki-supported diagram language (```plantuml, ```graphviz, ```d2, ...) —
+are extracted from the markdown source before the mistune pass and replaced
+with __MERMAID_N__ placeholders. (The token name predates multi-language
+support and is kept for compatibility; it covers all diagram languages.)
 builder.py calls render_diagram() for each placeholder while iterating body
 segments in source order, so diagrams land in the correct position relative
 to surrounding paragraphs.
 
+Fences whose info string is NOT a supported diagram language (```bash,
+```yaml, ```python, ...) are left completely untouched and continue to
+render as ordinary code blocks.
+
 Rendering backends
 ------------------
-Backends are tried in this order:
+Mermaid fences try backends in this order:
 
   1. mmdc       — Mermaid CLI (Node.js). Best output quality and the only
                   backend that supports custom CSS themes. Used automatically
                   when mmdc is found in PATH (GitHub Actions, devspace).
                   Set DOCX_BUILDER_MERMAID_BACKEND=mmdc to require it.
 
-  2. kroki.io   — Public HTTP API at https://kroki.io (primary API backend).
-                  More reliable than mermaid.ink; uses zlib+base64url encoding.
-                  No local dependencies; requires internet access at build time.
+  2. Kroki      — HTTP API (https://kroki.io by default, or a self-hosted
+                  instance via DOCX_BUILDER_KROKI_URL). Diagram source is
+                  POSTed to {kroki_url}/{diagram_type}/png. No local
+                  dependencies; requires network access at build time.
 
   3. mermaid.ink — Public HTTP API at https://mermaid.ink (secondary API).
-                   Tried if kroki.io fails. Uses plain base64url encoding.
+                   Tried if Kroki fails. Uses plain base64url encoding.
 
   4. Placeholder — If all backends fail (offline, syntax error, no Node.js),
-                   a styled warning block containing the raw Mermaid source is
+                   a styled warning block containing the raw diagram source is
                    inserted instead of crashing the build.
 
-Environment variable override:
+All other diagram languages render via Kroki only (backend 2), falling back
+to the styled placeholder (backend 4) on any failure.
+
+Environment variable overrides:
     DOCX_BUILDER_MERMAID_BACKEND=auto        (default — mmdc → kroki → ink)
     DOCX_BUILDER_MERMAID_BACKEND=mmdc        (require mmdc only)
-    DOCX_BUILDER_MERMAID_BACKEND=kroki       (skip mmdc, kroki.io only)
+    DOCX_BUILDER_MERMAID_BACKEND=kroki       (skip mmdc, Kroki only)
     DOCX_BUILDER_MERMAID_BACKEND=mermaid_ink (skip mmdc and kroki, ink only)
+
+    DOCX_BUILDER_KROKI_URL=https://kroki.io  (default — public Kroki API)
+    DOCX_BUILDER_KROKI_URL=http://127.0.0.1:8000
+                                             (self-hosted Kroki instance;
+                                             applies to ALL diagram languages,
+                                             including the mermaid Kroki step)
 
 Custom CSS (mmdc only)
 ----------------------
@@ -46,14 +63,15 @@ Supported image formats for ![]() references
 python-docx supports: PNG, JPG/JPEG, GIF, TIFF, BMP, EMF, WMF.
 SVG is NOT supported natively — export to PNG before referencing.
 
-Caption syntax for inline Mermaid fences
+Caption syntax for inline diagram fences
 -----------------------------------------
     ```mermaid caption="Figure 1 — DevOps Lifecycle"
     flowchart LR
         A --> B
     ```
 
-The caption attribute is optional. Alt text in ![]() image references is
+The caption attribute is optional and works on any diagram fence
+(```plantuml caption="..." etc.). Alt text in ![]() image references is
 used as the caption for path-referenced images.
 """
 
@@ -61,7 +79,6 @@ import os
 import re
 import base64
 import shutil
-import zlib
 import urllib.request
 import urllib.error
 import urllib.parse
@@ -95,46 +112,116 @@ DIAGRAM_RENDER_SCALE_DEFAULT: float = 2.0
 DIAGRAM_RENDER_SCALE_MIN: float = 1.0
 DIAGRAM_RENDER_SCALE_MAX: float = 4.0
 
+# Default Kroki endpoint. Override with DOCX_BUILDER_KROKI_URL to point at a
+# self-hosted Kroki instance (e.g. http://127.0.0.1:8000).
+DEFAULT_KROKI_URL: str = 'https://kroki.io'
+
+# Fence info string → Kroki diagram type.
+# Keys are the languages recognised as diagram fences; values are the path
+# segment used in the Kroki render URL ({kroki_url}/{type}/png). Most map
+# 1:1; aliases like ```dot → graphviz are the exception.
+#
+# KEEP IN STEP with SUPPORTED_DIAGRAM_TYPES in scripts/docx_manifest.py —
+# scripts/ is not an importable package, so the list is duplicated there.
+# Any fence whose info string is NOT in this map is an ordinary code block
+# (```bash, ```yaml, ```python, ...) and must never be treated as a diagram.
+KROKI_LANGUAGE_TYPES: dict[str, str] = {
+    'mermaid': 'mermaid',
+    'plantuml': 'plantuml',
+    'c4plantuml': 'c4plantuml',
+    'graphviz': 'graphviz',
+    'dot': 'graphviz',
+    'd2': 'd2',
+    'pikchr': 'pikchr',
+    'erd': 'erd',
+    'svgbob': 'svgbob',
+    'nomnoml': 'nomnoml',
+    'structurizr': 'structurizr',
+    'ditaa': 'ditaa',
+    'seqdiag': 'seqdiag',
+    'blockdiag': 'blockdiag',
+    'nwdiag': 'nwdiag',
+    'packetdiag': 'packetdiag',
+    'rackdiag': 'rackdiag',
+    'umlet': 'umlet',
+    'vega': 'vega',
+    'vegalite': 'vegalite',
+    'wavedrom': 'wavedrom',
+    'wireviz': 'wireviz',
+    'dbml': 'dbml',
+    'bpmn': 'bpmn',
+    'excalidraw': 'excalidraw',
+    'bytefield': 'bytefield',
+    'goat': 'goat',
+    'symbolator': 'symbolator',
+}
+
 
 # ── Extraction ────────────────────────────────────────────────────────────────
 
-def extract_mermaid_fences(md_text: str) -> tuple[str, list[dict]]:
+def extract_diagram_fences(md_text: str) -> tuple[str, list[dict]]:
     """
-    Extract ```mermaid code fences from markdown and replace with placeholders.
+    Extract diagram code fences from markdown and replace with placeholders.
+
+    A fence is a diagram fence when its info string (the word after the
+    opening backticks) is a key in KROKI_LANGUAGE_TYPES — ```mermaid,
+    ```plantuml, ```graphviz, ```d2, etc. Any other fence (```bash,
+    ```yaml, ```python, plain ```) is NOT a diagram: it is returned to the
+    markdown stream byte-for-byte unchanged and renders as an ordinary
+    code block.
 
     Returns (processed_text, diagram_data_list) where:
-      - processed_text has each fence replaced by a __MERMAID_N__ token
+      - processed_text has each diagram fence replaced by a __MERMAID_N__
+        token (name kept for compatibility; covers all diagram languages)
       - diagram_data_list[N] is a dict:
-            {'source': str, 'caption': str | None}
+            {'source': str, 'caption': str | None,
+             'language': str, 'kroki_type': str}
 
     The caller (builder.py) splits the processed text on __MERMAID_N__ and
-    __TABLE_N__ tokens and calls render_diagram() for each Mermaid token,
+    __TABLE_N__ tokens and calls render_diagram() for each diagram token,
     keeping all elements in source order.
 
     Caption is parsed from an optional caption="..." attribute on the opening
     fence line:
         ```mermaid caption="Figure 1 — DevOps Lifecycle"
     """
-    # Matches ```mermaid<optional attrs>\n<body>\n``` — non-greedy body
+    # Matches ```<language><optional attrs>\n<body>\n``` — non-greedy body.
+    # The language must start at the fence with no gap; whether it is a
+    # diagram is decided in _extract so non-diagram fences pass through.
     fence_re = re.compile(
-        r'^```mermaid([^\n]*)\n(.*?)^```',
+        r'^```([A-Za-z][A-Za-z0-9_-]*)([^\n]*)\n(.*?)^```',
         re.MULTILINE | re.DOTALL,
     )
     diagrams: list[dict] = []
 
     def _extract(m: re.Match) -> str:
-        attrs_str = m.group(1).strip()
-        source    = m.group(2).strip()
+        language = m.group(1).strip().lower()
+        if language not in KROKI_LANGUAGE_TYPES:
+            # Ordinary code block (```bash, ```yaml, ...) — leave untouched.
+            return m.group(0)
+
+        attrs_str = m.group(2).strip()
+        source    = m.group(3).strip()
 
         cap_match = re.search(r'caption=["\']([^"\']+)["\']', attrs_str)
         caption   = cap_match.group(1) if cap_match else None
 
         idx = len(diagrams)
-        diagrams.append({'source': source, 'caption': caption})
+        diagrams.append({
+            'source': source,
+            'caption': caption,
+            'language': language,
+            'kroki_type': KROKI_LANGUAGE_TYPES[language],
+        })
         return f'\n__MERMAID_{idx}__\n'
 
     processed = fence_re.sub(_extract, md_text)
     return processed, diagrams
+
+
+# Backwards-compatible alias — the function handled only ```mermaid fences
+# before multi-language Kroki support landed. Existing callers keep working.
+extract_mermaid_fences = extract_diagram_fences
 
 
 # ── Rendering ─────────────────────────────────────────────────────────────────
@@ -147,90 +234,123 @@ def render_diagram(
     css_path: str | None = None,
 ) -> None:
     """
-    Render a single Mermaid diagram into the document at the current position.
+    Render a single diagram into the document at the current position.
 
-    Tries mmdc first (if in PATH or forced via env var), then kroki, then
-    mermaid.ink, and finally falls back to a styled placeholder so the build
-    never hard-fails.
+    Mermaid diagrams try mmdc first (if in PATH or forced via env var), then
+    Kroki, then mermaid.ink. Every other diagram language renders via Kroki
+    only. Both paths fall back to a styled placeholder so the build never
+    hard-fails.
 
     Args:
         doc:           The python-docx Document object.
         diagram_data:  Dict with keys 'source' (str) and 'caption' (str|None).
+                       Optional 'language' and 'kroki_type' keys (added by
+                       extract_diagram_fences) select the render path;
+                       both default to 'mermaid' for older callers.
         tmp_dir:       Temporary directory for intermediate PNG files.
         mermaid_theme: mermaid.ink theme string (ignored by mmdc — use css_path).
         css_path:      Optional path to a .css file passed to mmdc --cssFile.
     """
-    source  = diagram_data['source']
-    caption = diagram_data.get('caption')
+    source     = diagram_data['source']
+    caption    = diagram_data.get('caption')
+    language   = diagram_data.get('language', 'mermaid')
+    kroki_type = diagram_data.get('kroki_type', KROKI_LANGUAGE_TYPES.get(language, language))
     render_scale = _get_mermaid_render_scale()
 
     digest = hashlib.sha256(source.encode("utf-8")).hexdigest()
-    png_path = os.path.join(tmp_dir, f'mermaid_{digest}.png')
+    png_path = os.path.join(tmp_dir, f'{language}_{digest}.png')
     rendered = False
 
-    backend = os.environ.get('DOCX_BUILDER_MERMAID_BACKEND', 'auto').lower()
+    if language == 'mermaid':
+        backend = os.environ.get('DOCX_BUILDER_MERMAID_BACKEND', 'auto').lower()
 
-    # 1. mmdc — best quality, supports custom CSS; used when in PATH
-    if backend in ('auto', 'mmdc') and shutil.which('mmdc'):
-        _css = css_path or os.environ.get('DOCX_BUILDER_MERMAID_CSS')
-        rendered = _render_via_mmdc(
+        # 1. mmdc — best quality, supports custom CSS; used when in PATH
+        if backend in ('auto', 'mmdc') and shutil.which('mmdc'):
+            _css = css_path or os.environ.get('DOCX_BUILDER_MERMAID_CSS')
+            rendered = _render_via_mmdc(
+                source,
+                png_path,
+                css_path=_css,
+                scale=render_scale,
+            )
+
+        # 2. Kroki — primary API backend, generally more reliable
+        if not rendered and backend in ('auto', 'kroki'):
+            rendered = _render_via_kroki(source, png_path, scale=render_scale)
+
+        # 3. mermaid.ink — secondary public API fallback
+        if not rendered and backend in ('auto', 'mermaid_ink'):
+            rendered = _render_via_mermaid_ink(
+                source,
+                png_path,
+                theme=mermaid_theme,
+                scale=render_scale,
+            )
+    else:
+        # Non-mermaid languages have exactly one backend: Kroki.
+        rendered = _render_via_kroki(
             source,
             png_path,
-            css_path=_css,
-            scale=render_scale,
-        )
-
-    # 2. kroki.io — primary public API, generally more reliable
-    if not rendered and backend in ('auto', 'kroki'):
-        rendered = _render_via_kroki(source, png_path, scale=render_scale)
-
-    # 3. mermaid.ink — secondary public API fallback
-    if not rendered and backend in ('auto', 'mermaid_ink'):
-        rendered = _render_via_mermaid_ink(
-            source,
-            png_path,
-            theme=mermaid_theme,
+            diagram_type=kroki_type,
             scale=render_scale,
         )
 
     if rendered and os.path.isfile(png_path):
         _embed_image(doc, png_path, caption)
     else:
-        _embed_placeholder(doc, source, caption)
+        _embed_placeholder(doc, source, caption, language=language)
 
 
 # ── Private: rendering backends ───────────────────────────────────────────────
 
-def _render_via_kroki(source: str, output_path: str, scale: float = DIAGRAM_RENDER_SCALE_DEFAULT) -> bool:
-    """
-    Fetch a rendered PNG from the kroki.io public API.
+def _get_kroki_url() -> str:
+    """Return the Kroki base URL from the environment (default: kroki.io)."""
+    raw = os.environ.get('DOCX_BUILDER_KROKI_URL', '').strip()
+    return (raw or DEFAULT_KROKI_URL).rstrip('/')
 
-    kroki.io uses zlib compression + URL-safe base64 encoding of the diagram
-    source, which is more compact and generally more reliable than mermaid.ink.
-    Supports Mermaid and many other diagram types. No local dependencies.
+
+def _render_via_kroki(
+    source: str,
+    output_path: str,
+    diagram_type: str = 'mermaid',
+    scale: float = DIAGRAM_RENDER_SCALE_DEFAULT,
+) -> bool:
+    """
+    Fetch a rendered PNG from a Kroki server.
+
+    The diagram source is POSTed as text/plain to
+    {kroki_url}/{diagram_type}/png — the same form scripts/docx_manifest.py
+    uses, and it avoids URL-length limits that the GET encoding hits on
+    large diagrams. The endpoint defaults to the public https://kroki.io
+    API and can point at a self-hosted instance via DOCX_BUILDER_KROKI_URL.
+    Supports Mermaid and every other Kroki diagram type. No local
+    dependencies.
 
     Returns True on success, False on any network or API error.
     """
     try:
-        compressed = zlib.compress(source.encode('utf-8'), level=9)
-        encoded    = base64.urlsafe_b64encode(compressed).decode('ascii')
         params = urllib.parse.urlencode({'scale': _format_scale_query_value(scale)})
-        url = f'https://kroki.io/mermaid/png/{encoded}?{params}'
+        url = f'{_get_kroki_url()}/{diagram_type}/png?{params}'
         req = urllib.request.Request(
             url,
-            headers={'User-Agent': 'docx-builder/1.0'},
+            data=source.encode('utf-8'),
+            headers={
+                'User-Agent': 'docx-builder/1.0',
+                'Content-Type': 'text/plain; charset=utf-8',
+            },
+            method='POST',
         )
         with urllib.request.urlopen(req, timeout=20) as resp:
             content_type = resp.headers.get('Content-Type', '')
             if 'image' not in content_type:
-                print(f'  [diagrams] kroki.io returned non-image '
+                print(f'  [diagrams] Kroki returned non-image '
                       f'content-type: {content_type}')
                 return False
             with open(output_path, 'wb') as f:
                 f.write(resp.read())
         return True
     except (urllib.error.URLError, OSError) as exc:
-        print(f'  [diagrams] kroki.io render failed: {exc}')
+        print(f'  [diagrams] Kroki render failed ({diagram_type}): {exc}')
         return False
 
 
@@ -360,29 +480,36 @@ def _embed_image(doc, img_path: str, caption: str | None) -> None:
         _add_caption(doc, caption)
 
 
-def _embed_placeholder(doc, source: str, caption: str | None) -> None:
+def _embed_placeholder(doc, source: str, caption: str | None,
+                       language: str = 'mermaid') -> None:
     """
     Emit a styled warning block when diagram rendering fails.
 
-    Preserves the raw Mermaid source in a code-style paragraph so the
+    Preserves the raw diagram source in a code-style paragraph so the
     document author can see the intent. Does not raise an exception.
+    The hint text names the language and its remedy: mermaid suggests the
+    CLI install; every other language points at the Kroki endpoint.
     """
     from .xml_helpers import para_spacing, set_run_color
+
+    if language == 'mermaid':
+        hint = ('\u26a0 Diagram could not be rendered '
+                '(install @mermaid-js/mermaid-cli or check internet access)')
+    else:
+        hint = (f'\u26a0 {language} diagram could not be rendered '
+                f'(check Kroki endpoint: {_get_kroki_url()})')
 
     # Warning banner
     warn = doc.add_paragraph()
     para_spacing(warn, before=120, after=20)
-    run = warn.add_run(
-        '\u26a0 Diagram could not be rendered '
-        '(install @mermaid-js/mermaid-cli or check internet access)'
-    )
+    run = warn.add_run(hint)
     run.bold      = True
     run.italic    = True
     run.font.name = FONT_BODY
     run.font.size = Pt(9)
     set_run_color(run, DARK_NAVY)
 
-    # Mermaid source in code style with grey background
+    # Diagram source in code style with grey background
     p   = doc.add_paragraph()
     pPr = p._p.get_or_add_pPr()
     shd = OxmlElement('w:shd')

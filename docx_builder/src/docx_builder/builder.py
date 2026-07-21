@@ -38,7 +38,7 @@ from .revision_history import build_revision_table
 from .sections import add_section_break, add_body_footer
 from .cover_page import set_toc_page_numbering_start
 from .markdown_parser import HtmlToDocx, extract_md_tables, render_md_table
-from .diagrams import extract_mermaid_fences, render_diagram
+from .diagrams import extract_diagram_fences, render_diagram
 
 
 def build_document(
@@ -137,9 +137,11 @@ def build_document(
     body_md = re.sub(r'^(\s*)-\s+\[ \]\s+', r'\1- ' + '\u2610 ',
                      body_md, flags=re.MULTILINE)
 
-    # Step 1: Extract inline Mermaid fences before mistune sees them.
-    #         Replaces each ```mermaid block with a __MERMAID_N__ placeholder.
-    body_md_no_mermaid, mermaid_data_list = extract_mermaid_fences(body_md)
+    # Step 1: Extract inline diagram fences before mistune sees them.
+    #         Replaces each ```mermaid / ```plantuml / ```graphviz / ... block
+    #         (any Kroki-supported language) with a __MERMAID_N__ placeholder.
+    #         Non-diagram fences (```bash, ```yaml, ...) pass through untouched.
+    body_md_no_mermaid, mermaid_data_list = extract_diagram_fences(body_md)
 
     # Step 2: Extract GFM tables (no doc writes yet).
     #         Replaces each pipe table with a __TABLE_N__ placeholder.
