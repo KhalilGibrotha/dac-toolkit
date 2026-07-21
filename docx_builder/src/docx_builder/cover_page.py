@@ -330,8 +330,14 @@ def build_cover_page(doc, meta: dict, logo_path: str | None):
             )
 
     if not logo_rendered:
-        # Fallback: org name as styled text when no usable logo file is provided
-        run = logo_para.add_run(ORG_NAME)
+        # Fallback: org name as styled text when no usable logo file is provided.
+        # Resolve through meta['org'] the same way build_cover_footer does —
+        # builder.py merges --org overrides into meta['org'] before calling us,
+        # so reading the module constant directly would print the compiled-in
+        # placeholder ("Acme Corp") on every logo-less cover regardless of the
+        # caller's org.yaml.
+        org = meta.get('org') or {}
+        run = logo_para.add_run(org.get('name', ORG_NAME))
         run.bold = True
         run.font.name = FONT_TITLE
         run.font.size = Pt(14)

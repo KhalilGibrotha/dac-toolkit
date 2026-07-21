@@ -104,19 +104,103 @@ content-repo/
 └── exports/        Generated DOCX output
 ```
 
-### Build all documents in a content repo
+## Choosing What Gets Rendered
 
-```bash
-bash scripts/build-docs.sh /path/to/content-repo
+The toolkit supports two first-class ways to select which documents get
+rendered, plus the original shell pipeline. All three are supported — none is
+deprecated. Pick the one that matches how your repo decides what is
+publishable.
+
+| Approach | In one sentence |
+|---|---|
+| **Scan** — `docx-build-all` + `docx-build.yml` | Renders everything under the configured `scan:` folders, minus `exclude:` paths and status filters. |
+| **Manifest** — `scripts/docx_manifest.py` + `manifests/render-manifest.yaml` | Renders exactly the documents listed in the manifest, nothing else. |
+| **Shell pipeline** — `scripts/build-docs.sh` | The original path: pre-renders diagrams, then builds every front-mattered Markdown file under the conventional content folders. No config file required. |
+
+### When to choose which
+
+**Choose scan** when the repo's working set *is* the publication set: everything
+under `docs/`, `governance/`, etc. should ship, and the interesting decisions
+are which folders are in scope and which statuses to hold back. Its incremental
+render index and `mirror` layout make it the right fit for repeatedly syncing
+`exports/` to a document library as a folder.
+
+**Choose manifest** when publication is curated: a deliberate subset of the
+repo ships, and the explicit list is itself the governance artifact — a
+reviewable, diffable record of what the org has agreed to publish. Also the
+right fit when documents need per-document org/logo/output overrides, or when
+pre-rendered diagram PNGs should be committed as reviewable assets (the
+manifest wrapper rewrites fences to PNG files before the build; the builder
+itself also renders any Kroki-supported fence inline on every path).
+
+**Choose the shell pipeline** when you want zero configuration: point
+`build-docs.sh` at a content repo shaped like the layout above and it builds
+everything with front matter. It remains fully supported.
+
+### Capability comparison
+
+| Capability | `build-docs.sh` (shell) | `docx-build-all` (scan) | `docx_manifest.py` (manifest) |
+|---|---|---|---|
+| Selection model | Conventional folders (override via `DAC_DOC_DIRS`) | `scan:` + `exclude:` in `docx-build.yml` | Explicit `documents:` list in `render-manifest.yaml` |
+| Config required | None | `docx-build.yml` | `manifests/render-manifest.yaml` |
+| Output layout | Mirrors source tree under `exports/` | `status` (grouped by review state) or `mirror` | Mirrors source tree under `exports/` (per-document `output:` override) |
+| Incremental rebuild | No — always rebuilds | Yes — render index skips unchanged version/status | No — always rebuilds |
+| Status filtering | No | `skip_retired`, `skip_informational` | No — the list is the filter |
+| Diagram handling | Pre-renders Mermaid sources, then the builder handles inline fences | Builder handles inline fences for any Kroki-supported language | Rewrites any Kroki-supported fence (Mermaid, PlantUML, Graphviz, D2, ...) to PNG via a Kroki service, then calls `docx-build` |
+| Logo | Auto-detects `assets/logo/logo.png` | `logo:` key, `--logo` flag, or auto-detects `assets/logo/logo.png` | Per-document `logo:` key, or auto-detects `assets/logo/logo.png` |
+| Org identity | Auto-detects `vars/org.yaml` | `org:` key, `--org` flag, or front matter | Per-document `org:` key, or auto-detects `vars/org.yaml` |
+| Environment | Needs `docx-build` on PATH | Needs `docx-build-all` on PATH | Bootstraps its own `.venv-docx-render/` |
+
+### Scan: build all documents with docx-build-all
+
+Create `docx-build.yml` at the content repo root:
+
+```yaml
+export_root: exports/          # required — root folder for DOCX output
+org: vars/org.yaml             # optional — org identity YAML (same as --org flag)
+logo: assets/logo/logo.png     # optional — cover logo; auto-detected at this path if omitted
+layout: mirror                 # optional — 'status' (default) or 'mirror'
+
+scan:                          # required — folders to render
+  - docs/
+  - governance/
+  - references/
+
+exclude:                       # optional — paths to skip even if under scan
+  - templates/
+  - archive/
+
+options:                       # optional
+  skip_retired: true           # default: true
+  skip_informational: false    # default: false
 ```
 
-The script auto-detects `vars/org.yaml` and `assets/logo/logo.png` in the
-content directory and passes them to `docx-build`.
+Then run it from anywhere inside the repo (it searches upward for the config):
 
-### Build manifest-managed documents from the content repo root
+```bash
+docx-build-all                 # render changed documents
+docx-build-all --dry-run       # report what would render, write nothing
+docx-build-all --force         # re-render everything
+```
 
-When a content repo includes `manifests/render-manifest.yaml`, run the toolkit
-wrapper from the content repo root:
+Paths in the config are resolved relative to the config file's directory.
+`--org` and `--logo` flags override the config keys.
+
+### Manifest: build a curated list with docx_manifest.py
+
+Create `manifests/render-manifest.yaml` at the content repo root:
+
+```yaml
+documents:
+  - id: segmentation-overview
+    input: docs/overview_segmentation_poc-architecture.md
+  - id: aap-dr-adr
+    input: decisions/adr_automation_aap-dr.md
+    output: exports/published/adr_automation_aap-dr.docx   # optional override
+```
+
+Each entry needs `id` and `input`; `output`, `org`, and `logo` are optional
+per-document overrides. Then run the wrapper from the content repo root:
 
 ```bash
 python3 ../dac-toolkit/scripts/docx_manifest.py list --content-root . --manifest manifests/render-manifest.yaml
@@ -130,6 +214,15 @@ The render wrapper:
 - falls back to `vars/org.yaml` and `assets/logo/logo.png` when present
 - creates a local `.venv-docx-render/` and installs `docx-build` automatically if needed
 - rewrites Kroki-supported fenced diagrams to generated PNG assets before calling `docx-build`
+
+### Shell pipeline: build all documents with build-docs.sh
+
+```bash
+bash scripts/build-docs.sh /path/to/content-repo
+```
+
+The script auto-detects `vars/org.yaml` and `assets/logo/logo.png` in the
+content directory and passes them to `docx-build`.
 
 ### Build a single document
 
@@ -153,6 +246,19 @@ docx-build INPUT [--logo PATH] [--org PATH] [--output PATH]
 | `--logo PATH` | Logo image (PNG/JPG) for cover page. Falls back to org name text. |
 | `--org PATH` | YAML file with org identity overrides (name, dept, addr1, addr2, url) |
 | `--output PATH` | Output .docx path. Defaults to input filename with .docx extension. |
+
+```text
+docx-build-all [--config PATH] [--org PATH] [--logo PATH] [--dry-run] [--force] [--report-file PATH]
+```
+
+| Flag | Description |
+|---|---|
+| `--config PATH` | Path to `docx-build.yml`. Defaults to searching upward from CWD. |
+| `--org PATH` | Org identity YAML. Takes precedence over the `org:` config key. |
+| `--logo PATH` | Logo image (PNG/JPG). Takes precedence over the `logo:` config key. |
+| `--dry-run` | Report what would render; write nothing. |
+| `--force` | Re-render all documents regardless of version or status match. |
+| `--report-file PATH` | Write the build report to a file in addition to stdout. |
 
 ---
 
