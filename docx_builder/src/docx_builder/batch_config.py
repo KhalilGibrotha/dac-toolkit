@@ -8,6 +8,7 @@ Config schema (docx-build.yml):
 
     export_root: exports/          # required — root folder for DOCX output
     org: vars/org.yaml             # optional — org identity YAML (same as --org flag)
+    layout: status                 # optional — 'status' (default) or 'mirror'
 
     scan:                          # required — at least one entry
       - docs/
@@ -25,6 +26,20 @@ Config schema (docx-build.yml):
       skip_informational: false    # default: false — render status: Informational docs
 
 Paths in scan and exclude are resolved relative to the config file's directory.
+
+Layout
+──────
+    status  (default)  exports/<Status>/<name>_v<version>.docx
+                       Groups by review state. Good when the export set is read
+                       as "what is accepted vs still in draft".
+
+    mirror             exports/<source path>/<name>.docx
+                       Reproduces the source tree, with no status folder and no
+                       version in the filename. Use this when the export set is
+                       synced to a document library as a folder: paths stay
+                       stable across status changes and version bumps, so a
+                       re-upload updates files in place instead of leaving
+                       renamed or relocated duplicates behind.
 """
 
 import os
@@ -53,6 +68,10 @@ class BatchOptions:
     skip_informational: bool = False
 
 
+LAYOUTS = ('status', 'mirror')
+DEFAULT_LAYOUT = 'status'
+
+
 @dataclass
 class BatchConfig:
     export_root: str          # resolved absolute path
@@ -62,6 +81,7 @@ class BatchConfig:
     options: BatchOptions
     config_path: str          # absolute path to the config file itself
     config_dir: str           # directory containing the config file
+    layout: str = DEFAULT_LAYOUT   # 'status' or 'mirror'
 
 
 def find_config(start_dir: str, filename: str = "docx-build.yml") -> Optional[str]:
@@ -155,6 +175,13 @@ def load_config(path: Optional[str] = None) -> BatchConfig:
     else:
         org = None
 
+    layout = str(raw.get('layout') or DEFAULT_LAYOUT).strip().lower()
+    if layout not in LAYOUTS:
+        raise ConfigError(
+            f"Invalid config file: {path}\n"
+            f"  - 'layout' must be one of {', '.join(LAYOUTS)} (got: {layout!r})"
+        )
+
     raw_opts = raw.get('options') or {}
     options = BatchOptions(
         skip_retired=_parse_bool(raw_opts.get('skip_retired', True)),
@@ -169,4 +196,5 @@ def load_config(path: Optional[str] = None) -> BatchConfig:
         options=options,
         config_path=path,
         config_dir=config_dir,
+        layout=layout,
     )
