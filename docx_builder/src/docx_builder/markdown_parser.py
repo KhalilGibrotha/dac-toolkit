@@ -41,7 +41,7 @@ from docx.enum.table import WD_TABLE_ALIGNMENT
 from docx.shared import RGBColor
 
 from .constants import BLUE_LINK, BLACK, FONT_BODY, GRAY_TEXT
-from .diagrams import DIAGRAM_DEFAULT_WIDTH_IN
+from .diagrams import fit_image_dimensions
 from .xml_helpers import (
     set_run_color, para_spacing,
     set_cell_bg, set_cell_borders, set_cell_margins, set_table_border,
@@ -281,7 +281,11 @@ class HtmlToDocx(HTMLParser):
             p = self.doc.add_paragraph()
             p.alignment = WD_ALIGN_PARAGRAPH.CENTER
             para_spacing(p, before=120, after=40)
-            p.add_run().add_picture(img_path, width=Inches(DIAGRAM_DEFAULT_WIDTH_IN))
+            width, height = fit_image_dimensions(img_path)
+            if height is None:
+                p.add_run().add_picture(img_path, width=width)
+            else:
+                p.add_run().add_picture(img_path, width=width, height=height)
             if alt:
                 cap = self.doc.add_paragraph()
                 cap.alignment = WD_ALIGN_PARAGRAPH.CENTER

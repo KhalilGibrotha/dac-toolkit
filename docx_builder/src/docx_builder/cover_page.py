@@ -26,9 +26,12 @@ changes. Read the notes before modifying either.
 """
 
 import os
+import sys
 from lxml import etree
 
 from docx.shared import Inches, Pt, Emu
+from docx.image.exceptions import UnrecognizedImageError
+from docx.image.image import Image as DocxImage
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
@@ -294,11 +297,40 @@ def build_cover_page(doc, meta: dict, logo_path: str | None):
     logo_para.alignment = WD_ALIGN_PARAGRAPH.LEFT
     para_spacing(logo_para, before=120, after=0)
 
+    logo_rendered = False
     if logo_path and os.path.isfile(logo_path):
-        run = logo_para.add_run()
-        run.add_picture(logo_path, width=Inches(3.3))
-    else:
-        # Fallback: org name as styled text when no logo file is provided
+        try:
+            image = DocxImage.from_file(logo_path)
+            width_in = image.width / 914400
+            height_in = image.height / 914400
+            if width_in > 0 and height_in > 0:
+                scale = min(3.3 / width_in, 1.1 / height_in, 1.0)
+                width = Inches(width_in * scale)
+                height = Inches(height_in * scale)
+            else:
+                width = Inches(3.3)
+                height = None
+
+            run = logo_para.add_run()
+            if height is None:
+                run.add_picture(logo_path, width=width)
+            else:
+                run.add_picture(logo_path, width=width, height=height)
+            logo_rendered = True
+        except UnrecognizedImageError:
+            print(
+                f"Warning: logo file is not a supported image for python-docx: {logo_path} "
+                f"(expected PNG or JPG) - using text fallback",
+                file=sys.stderr,
+            )
+        except OSError as exc:
+            print(
+                f"Warning: logo file could not be opened: {logo_path} ({exc}) - using text fallback",
+                file=sys.stderr,
+            )
+
+    if not logo_rendered:
+        # Fallback: org name as styled text when no usable logo file is provided
         run = logo_para.add_run(ORG_NAME)
         run.bold = True
         run.font.name = FONT_TITLE

@@ -45,7 +45,11 @@ dac-toolkit/
 │   └── pyproject.toml      Package config (pip install -e .)
 ├── scripts/
 │   ├── build-docs.sh       Full pipeline: diagrams + DOCX for a content repo
-│   └── render-diagrams.sh  Batch render Mermaid .mmd files and fences
+│   ├── docx_manifest.py    Manifest-driven content-repo render wrapper
+│   ├── render-diagrams.sh  Batch render Mermaid .mmd files and fences
+│   ├── render-decks.sh     Render Quarto .qmd decks to PowerPoint + QA gallery
+│   └── lint-decks.py       Deck gate: source↔render pairing and package integrity
+├── presentations/          Quarto → PowerPoint example (template, theme, palette)
 ├── templates/              Generic document templates (gap analysis, ADR, etc.)
 ├── diagrams/
 │   └── mermaid-theme.css   Custom Mermaid CSS theme for mmdc
@@ -56,6 +60,25 @@ dac-toolkit/
 ├── devfile.yaml            OpenShift Dev Spaces multi-repo workspace
 └── .markdownlint.json      Markdown linting rules
 ```
+
+---
+
+## Presentations (Quarto → PowerPoint)
+
+Alongside DOCX, the toolkit renders **Markdown-source presentation decks** to
+PowerPoint. Author a `.qmd`, render to `.pptx`, and review per-slide PNGs —
+figures come from executable Python chunks so charts stay on-brand and
+regenerate from source. The bundled `presentations/` directory is a generic,
+runnable example (template, code theme, matplotlib palette).
+
+```bash
+bash scripts/render-decks.sh --smoke                     # render the example (self-test)
+bash scripts/render-decks.sh /path/to/content-repo --qa  # render a content repo's decks + QA gallery
+python scripts/lint-decks.py /path/to/content-repo       # enforce source↔render pairing
+```
+
+Full routine, authoring rules, and the content-repo layout:
+**[presentations/README.md](presentations/README.md)**.
 
 ---
 
@@ -76,6 +99,7 @@ content-repo/
 │   └── org.yaml    Your org identity (name, dept, address, URL)
 ├── assets/
 │   └── logo/logo.png   Your org logo
+├── presentations/  Quarto decks + your branded template/theme/palette (optional)
 └── exports/        Generated DOCX output
 ```
 
@@ -87,6 +111,24 @@ bash scripts/build-docs.sh /path/to/content-repo
 
 The script auto-detects `vars/org.yaml` and `assets/logo/logo.png` in the
 content directory and passes them to `docx-build`.
+
+### Build manifest-managed documents from the content repo root
+
+When a content repo includes `manifests/render-manifest.yaml`, run the toolkit
+wrapper from the content repo root:
+
+```bash
+python3 ../dac-toolkit/scripts/docx_manifest.py list --content-root . --manifest manifests/render-manifest.yaml
+python3 ../dac-toolkit/scripts/docx_manifest.py validate --content-root . --manifest manifests/render-manifest.yaml
+python3 ../dac-toolkit/scripts/docx_manifest.py render --content-root . --manifest manifests/render-manifest.yaml
+```
+
+The render wrapper:
+
+- resolves manifest paths relative to the content repo
+- falls back to `vars/org.yaml` and `assets/logo/logo.png` when present
+- creates a local `.venv-docx-render/` and installs `docx-build` automatically if needed
+- rewrites Kroki-supported fenced diagrams to generated PNG assets before calling `docx-build`
 
 ### Build a single document
 
@@ -164,6 +206,16 @@ pre-installed. See `.devcontainer/README.md` for setup.
 
 Both enforce offline operation — no outbound network connections at runtime.
 
+### Workflow Boundaries
+
+This repository is the long-term home for the documentation renderer and
+documentation-first workflow. The intended split between this repo and the
+Dev Space wrapper repo is documented here:
+
+- [docs/repo-boundaries.md](docs/repo-boundaries.md)
+- [docs/content-repo-conventions.md](docs/content-repo-conventions.md)
+- [docs/backlog.md](docs/backlog.md)
+
 ### Multi-Repo Dev Spaces Workspace
 
 Edit `devfile.yaml` to add your content repos to the `projects:` block:
@@ -192,6 +244,13 @@ lxml>=4.9
 ```
 
 Python 3.10+ required. Install with `pip install -e docx_builder`.
+
+**Deck rendering** additionally needs Quarto plus `jupyter`, `matplotlib`, and
+`pymupdf` for the figure chunks — all baked into the container images. The
+optional `--qa` PNG gallery also needs LibreOffice, which is *not* in the images
+(unavailable from the UBI9 repositories); `.pptx` rendering is unaffected.
+Locally: `pip install jupyter matplotlib pymupdf`, plus Quarto and LibreOffice
+if you want the gallery.
 
 ---
 

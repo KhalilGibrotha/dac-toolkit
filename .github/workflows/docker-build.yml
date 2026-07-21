@@ -30,7 +30,10 @@ jobs:
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
-          context: .devcontainer
+          # Repo root, not .devcontainer/ — the Dockerfile copies
+          # .vale-bootstrap.ini from the repo root, matching the build
+          # command documented in Dockerfile.devspaces itself.
+          context: .
           file: .devcontainer/Dockerfile.devspaces
           push: true
           tags: |
