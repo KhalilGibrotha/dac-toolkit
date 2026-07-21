@@ -68,7 +68,7 @@ jobs:
       # ignore-unfixed keeps the gate on things we can actually act on; an
       # unfixable base CVE should not block every build.
       - name: Vulnerability gate
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: dac-toolkit:scan
           format: table
