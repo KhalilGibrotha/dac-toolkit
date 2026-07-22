@@ -193,7 +193,13 @@ def build_cover_footer(section, meta: dict):
         if is_url:
             run.underline = True
 
-    _footer_line(f'\u00A9{name}', bold=True)   # © OrgName
+    # The footer supplies the copyright mark, so the configured org name is
+    # expected to be the bare name. When a content repo has already baked a
+    # mark into org.yaml - easy to do and invisible in review; it took a
+    # hexdump to spot in one repo - prepending another produced a doubled
+    # mark on every cover page. Honour the mark the name already carries.
+    _mark_already_present = name.lstrip().startswith(('©', '®', '™'))
+    _footer_line(name if _mark_already_present else f'©{name}', bold=True)
     _footer_line(dept)
     _footer_line(addr1)
     _footer_line(addr2)

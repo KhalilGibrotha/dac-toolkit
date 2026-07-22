@@ -75,6 +75,31 @@ Dev Spaces uses `devfile.yaml` (at the repo root), not `devcontainer.json`.
 
 ---
 
+## Terminal Editors (Dev Spaces image)
+
+The Dev Spaces image (`Dockerfile.devspaces`) ships vim (full, not
+vim-minimal) and nano with system-wide prose defaults tuned for this
+workspace: the characters the content-repo CI rejects — smart quotes,
+non-breaking spaces, mojibake — are highlighted in red, tabs and trailing
+whitespace are visible, spell check is on for Markdown, and soft wrap breaks
+at word boundaries without inserting hard line breaks. YAML gets two-space
+indentation and highlighting (RHEL 9's nano predates upstream's yaml.nanorc,
+so the image carries one).
+
+These are defaults, not mandates:
+
+- vim: settings live in `/etc/vimrc.local`, sourced before `~/.vimrc`, so a
+  personal vimrc overrides anything (or `autocmd! dacprose` to drop the
+  filetype behavior wholesale).
+- nano: settings are appended to `/etc/nanorc`, read before `~/.nanorc` /
+  `~/.config/nano/nanorc`, so personal config wins. Toggle whitespace display
+  with `M-P`.
+- neovim is not in the image (not available from free UBI9 repos). A
+  user-supplied nvim can adopt the same defaults with
+  `source /etc/vimrc.local` in its init file.
+
+---
+
 ## Verify the Environment
 
 ```bash
