@@ -120,6 +120,47 @@ RUN pip install --no-cache-dir --no-deps /opt/dac-toolkit/docx_builder \
 ENV DAC_TOOLKIT_HOME=/opt/dac-toolkit
 ENV PATH="/opt/dac-toolkit/scripts:${PATH}"
 
+# ── Terminal editors: vim + nano with prose-tuned system defaults ────────────
+# Documentation work in Dev Spaces happens in a browser terminal, and the base
+# image ships only vim-minimal (no syntax, no spell). Install full editors with
+# defaults that surface the characters the content repos' CI rejects (smart
+# quotes, no-break spaces, mojibake, tabs, trailing whitespace — see the
+# content repo's scripts/lint-encoding.py) while editing, instead of failing
+# the build at commit time.
+#
+# neovim is deliberately NOT installed: it is not in the free UBI9 repos
+# (verified 2026-07-21 against ubi-9-appstream/baseos repodata; it is EPEL
+# only), and bolting EPEL onto a digest-pinned, Trivy-gated image widens the
+# supply chain for no gain here. /etc/vimrc.local below is nvim-compatible;
+# a user-supplied nvim can adopt it with `source /etc/vimrc.local` in its init.
+#
+# hunspell + en-US dictionary: RHEL's stock /etc/nanorc sets
+# `set speller "hunspell"`, so without the engine nano's ^T spell check is a
+# configured-but-broken key. vim brings its own spell files (in vim-common).
+# Size: vim-enhanced+vim-common ~36 MB installed, nano ~3 MB, hunspell ~1.5 MB.
+RUN dnf install -y --nodocs vim-enhanced nano hunspell hunspell-en-US \
+    && dnf clean all
+
+# System-wide editor defaults — defaults, not mandates. Both hooks load BEFORE
+# user dotfiles (RHEL's /etc/vimrc sources /etc/vimrc.local ahead of ~/.vimrc;
+# nano reads /etc/nanorc ahead of ~/.nanorc), so personal config overrides
+# everything. The greps assert the two hooks this relies on — verified against
+# vim-common-8.2.2637 and nano-5.6.1 — so a future base/package change that
+# drops either hook fails the build here instead of silently shipping an image
+# whose editor defaults never load. yaml.nanorc fills a gap in RHEL 9's nano
+# 5.6 (upstream added YAML highlighting in 5.7); it lands in /usr/share/nano
+# where the stock /etc/nanorc wildcard include already picks it up. All three
+# files are root-owned and world-readable, which is all an arbitrary-UID
+# process needs — nothing here is written to at runtime.
+COPY .devcontainer/editor/vimrc.local /etc/vimrc.local
+COPY .devcontainer/editor/yaml.nanorc /usr/share/nano/yaml.nanorc
+COPY .devcontainer/editor/nanorc.dac-prose /tmp/nanorc.dac-prose
+RUN grep -q '^  source /etc/vimrc.local$' /etc/vimrc \
+    && grep -q '^include "/usr/share/nano/\*\.nanorc"$' /etc/nanorc \
+    && cat /tmp/nanorc.dac-prose >> /etc/nanorc \
+    && rm /tmp/nanorc.dac-prose \
+    && chmod 644 /etc/vimrc.local /etc/nanorc /usr/share/nano/yaml.nanorc
+
 # ── OpenShift arbitrary UID support ──────────────────────────────────────────
 # OpenShift runs containers with a random UID in the root group (GID 0).
 # All directories the process writes to must be group-writable.

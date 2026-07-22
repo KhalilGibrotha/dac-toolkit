@@ -1,0 +1,44 @@
+## ----------------------------------------------------------------------------
+## dac-toolkit prose defaults — appended to /etc/nanorc by
+## .devcontainer/Dockerfile.devspaces.
+##
+## System-wide defaults only: nano reads ~/.nanorc (or ~/.config/nano/nanorc)
+## AFTER this file, so personal settings override anything here.
+##
+## RHEL's stock /etc/nanorc above already enables every syntax file in
+## /usr/share/nano (markdown, plus the yaml.nanorc this image adds) and sets
+## hunspell as the ^T spell checker; the image installs hunspell-en-US so
+## that actually works.
+##
+## NOTE: the extendsyntax rules at the bottom intentionally contain smart
+## quotes and a no-break space inside their bracket expressions — they exist
+## to paint exactly the characters the content repos' CI rejects
+## (scripts/lint-encoding.py: smart quotes, NBSP, mojibake).
+## ----------------------------------------------------------------------------
+
+## Soft-wrap long prose lines at word boundaries instead of hard-wrapping or
+## letting them run off screen. Display-only: file content is untouched.
+set softwrap
+set atblanks
+
+## Save with Unix line endings even if a pasted file arrived with CRLF.
+set unix
+
+## The Tab key inserts spaces (a real tab is a YAML syntax error and a
+## markdownlint MD010 failure). yaml.nanorc narrows this to 2 for YAML.
+set tabstospaces
+set tabsize 4
+
+## Characters used when whitespace display is toggled on with M-P:
+## tabs show as a guillemet, spaces as a middle dot.
+set whitespace "»·"
+
+## Paint the characters CI rejects, in the file types this workspace edits
+## (default covers files matching no other syntax, e.g. .qmd decks).
+extendsyntax markdown color white,red "[“”‘’ ]|â€"
+extendsyntax yaml color white,red "[“”‘’ ]|â€"
+extendsyntax default color white,red "[“”‘’ ]|â€"
+
+## Markdown: three or more trailing spaces (two is a legitimate hard break;
+## the repo linter flags three and up).
+extendsyntax markdown color ,red "   +$"

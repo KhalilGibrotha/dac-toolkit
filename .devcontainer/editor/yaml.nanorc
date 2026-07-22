@@ -1,0 +1,33 @@
+## YAML highlighting for nano 5.6 (RHEL 9). Upstream nano gained a yaml.nanorc
+## in 5.7 — one release after what RHEL 9 ships — so the dac-toolkit image
+## carries this minimal, independently written one. It is installed to
+## /usr/share/nano/, where the stock /etc/nanorc wildcard include picks it up.
+## A user's ~/.nanorc is read afterwards and can override or extend it.
+
+syntax yaml "\.ya?ml$|(^|/)\.?devfile$"
+header "^(%YAML|---([[:space:]]|$))"
+comment "#"
+
+## The Tab key indents with two spaces: a literal tab is a YAML syntax error.
+tabgives "  "
+
+## Document markers (--- / ...) and directives (%YAML, %TAG).
+color brightmagenta "^(---|\.\.\.)([[:space:]].*)?$"
+color brightmagenta "^%(YAML|TAG)([[:space:]].*)?$"
+
+## Keys, at any indent depth, including "- key:" list items.
+color green "^[[:space:]]*(-[[:space:]]+)?[^:#[:space:]][^:#]*:([[:space:]]|$)"
+
+## Scalars with special meaning to YAML parsers.
+color yellow "\<(true|false|yes|no|on|off|null)\>|(^|[[:space:]])~($|[[:space:]])"
+
+## Anchors (&name), aliases (*name), and tags (!tag, !!type).
+color cyan "(^|[[:space:]])[&*!]{1,2}[A-Za-z0-9_-]+"
+
+## Comments last among the content rules, so a "key:" inside one stays cyan.
+color cyan "(^|[[:space:]])#.*$"
+
+## Defects the content-repo CI rejects, painted so they cannot hide:
+## a literal tab (YAML syntax error) and trailing whitespace.
+color ,red "	+"
+color ,green "[[:space:]]+$"

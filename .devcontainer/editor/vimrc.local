@@ -1,0 +1,90 @@
+" dac-toolkit prose defaults for vim -- installed at /etc/vimrc.local by
+" .devcontainer/Dockerfile.devspaces.
+"
+" RHEL's /etc/vimrc sources this file (verified in vim-common-8.2.2637, and
+" asserted by a grep in the Dockerfile), and it runs BEFORE any ~/.vimrc, so
+" everything here is a default, not a mandate: personal dotfiles win. The
+" autocmds live in named groups so a user vimrc can inspect them
+" (:autocmd dacprose) or remove them wholesale (autocmd! dacprose).
+"
+" Why this file exists: the content repos' CI rejects invisible-character
+" defects -- smart quotes, no-break spaces, mojibake, and stray tabs/trailing
+" whitespace (scripts/lint-encoding.py and markdownlint in the content repo).
+" These settings surface those characters while editing, so the problem is
+" seen at the desk instead of failing the build at commit time.
+"
+" This file is deliberately pure ASCII. Non-ASCII display characters are
+" built with nr2char() and matched with \%uXXXX patterns, so the file parses
+" identically no matter what locale or 'encoding' vim starts with.
+
+" --- Encoding and file format ------------------------------------------------
+" The container locale is UTF-8, so 'encoding' normally already is; the guard
+" avoids a needless re-set (changing 'encoding' mid-session is discouraged).
+if &encoding !=# 'utf-8'
+  set encoding=utf-8
+endif
+set fileencodings=ucs-bom,utf-8,latin1
+
+" New files are written with Unix line endings; existing DOS files are still
+" detected and preserved rather than silently rewritten.
+set fileformats=unix,dos
+
+" --- Make invisible characters visible ----------------------------------------
+" tab   U+00BB guillemet + fill   trail   U+00B7 middle dot   nbsp   U+2423
+" extends/precedes mark text scrolled out of view on nowrap windows.
+set list
+execute 'set listchars=' .
+      \ 'tab:' . nr2char(0xbb) . '\ ,' .
+      \ 'trail:' . nr2char(0xb7) . ',' .
+      \ 'nbsp:' . nr2char(0x2423) . ',' .
+      \ 'extends:' . nr2char(0x203a) . ',' .
+      \ 'precedes:' . nr2char(0x2039)
+
+" Characters the CI encoding gate rejects, painted red in every window:
+"   u201c u201d u2018 u2019   smart quotes
+"   u00a0 u202f               no-break spaces (u00a0 also shows via listchars)
+"   ufffd                     replacement char = invalid UTF-8 upstream
+"   u200b                     zero-width space
+"   u00e2 u20ac               'a-circumflex + euro' pair = the classic
+"                             UTF-8-read-as-CP1252 mojibake lead ("a-hat-euro")
+highlight default DacLintChar ctermfg=white ctermbg=red guifg=#ffffff guibg=#cc0000
+function! s:DacLintMatch() abort
+  if exists('w:dac_lint_match')
+    return
+  endif
+  let w:dac_lint_match = matchadd('DacLintChar',
+        \ '\%u201c\|\%u201d\|\%u2018\|\%u2019\|\%u00a0\|\%u202f\|\%ufffd\|\%u200b\|\%u00e2\%u20ac')
+endfunction
+augroup dacprose_lint
+  autocmd!
+  autocmd VimEnter,WinNew * call s:DacLintMatch()
+  autocmd ColorScheme * highlight DacLintChar ctermfg=white ctermbg=red guifg=#ffffff guibg=#cc0000
+augroup END
+
+" --- Prose and YAML behaviour --------------------------------------------------
+augroup dacprose
+  autocmd!
+  " Prose: spell-check on; soft wrap at word boundaries with wrapped lines
+  " kept at their indent; never auto-insert hard line breaks while typing
+  " (textwidth=0 plus removing 't' -- repo style is one logical line per
+  " sentence/paragraph, wrapped by the terminal, not by the editor).
+  " (quarto: vim 8.2 detects .qmd as markdown via the autocmd below; newer
+  " vims have a native quarto type, so cover both.)
+  autocmd FileType markdown,text,gitcommit,quarto
+        \ setlocal spell spelllang=en_us wrap linebreak breakindent
+        \ textwidth=0 formatoptions-=t
+  " YAML: two-space indent, and the Tab key inserts spaces -- a literal tab is
+  " a YAML syntax error.
+  autocmd FileType yaml setlocal expandtab shiftwidth=2 softtabstop=2
+augroup END
+
+" --- Filetype detection ---------------------------------------------------------
+" .md and .yml/.yaml are native in vim 8.2; these fill the gaps.
+" setfiletype (not set ft=) yields to any type already detected.
+augroup dacprose_ft
+  autocmd!
+  " Quarto documents are Markdown-based; vim 8.2 predates a quarto type.
+  autocmd BufNewFile,BufRead *.qmd setfiletype markdown
+  " Devfiles named without a .yaml suffix still get YAML treatment.
+  autocmd BufNewFile,BufRead devfile,*.devfile setfiletype yaml
+augroup END
