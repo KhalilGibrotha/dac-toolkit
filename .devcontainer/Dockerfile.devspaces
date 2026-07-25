@@ -81,17 +81,21 @@ RUN curl -fsSL "https://github.com/quarto-dev/quarto-cli/releases/download/v${QU
 ENV PUPPETEER_CACHE_DIR=/opt/puppeteer-cache
 ARG MERMAID_CLI_VERSION=11.16.0
 RUN npm install -g "@mermaid-js/mermaid-cli@${MERMAID_CLI_VERSION}" \
-    # markdownlint-cli2: same gate CI runs (npx would download it per run;
-    # baking it in keeps lint offline-capable and version-stable)
-    && npm install -g "markdownlint-cli2@0.23.0" \
-    # 0.23.0 bundles js-yaml 5.2.0 (GHSA-pm4m-ph32-ghv5, HIGH, fixed in
-    # 5.2.2). Upgrade the transitive dep in place so the tool stays at the
-    # CI-pinned version while the Trivy gate passes; drop this when the
-    # markdownlint-cli2 pin advances past a release that ships the fix.
-    && (cd /usr/local/lib/node_modules/markdownlint-cli2 \
-        && npm install --no-audit --no-fund "js-yaml@^5.2.2") \
     && npm cache clean --force \
     && chmod -R g+rx /opt/puppeteer-cache
+
+# ── markdownlint-cli2: same gate CI runs, pinned, with security overrides ────
+# Installed in a dedicated app dir (not -g) so npm `overrides` can force
+# patched transitive deps: 0.23.0 ships js-yaml <5.2.2 (GHSA-pm4m-ph32-ghv5)
+# and shell-quote <1.9.0 (CVE-2026-13311), both HIGH, both fixed upstream.
+# Drop the overrides when the markdownlint-cli2 pin advances past releases
+# that ship the fixes.
+RUN mkdir -p /opt/markdownlint && cd /opt/markdownlint \
+    && printf '%s' '{"dependencies":{"markdownlint-cli2":"0.23.0"},"overrides":{"js-yaml":">=5.2.2","shell-quote":">=1.9.0"}}' > package.json \
+    && npm install --no-audit --no-fund \
+    && ln -s /opt/markdownlint/node_modules/.bin/markdownlint-cli2 /usr/local/bin/markdownlint-cli2 \
+    && npm cache clean --force \
+    && chmod -R g+rx /opt/markdownlint
 
 # Puppeteer launch flags for containerized Chromium
 RUN echo '{"args":["--no-sandbox","--disable-setuid-sandbox","--disable-dev-shm-usage"]}' \
