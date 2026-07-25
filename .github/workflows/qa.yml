@@ -1,0 +1,91 @@
+name: Release QA
+
+# Functional smoke tests that run INSIDE the published image — the release
+# gate between "image published" and "tag it stable". Dispatch manually after
+# a main build publishes :latest; tag the release only when this is green.
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "Image tag to test"
+        default: "latest"
+        required: true
+
+jobs:
+  release-qa:
+    runs-on: ubuntu-latest
+    container: ghcr.io/khalilgibrotha/dac-toolkit:${{ inputs.image_tag }}
+    steps:
+      - name: Toolchain present and answering
+        run: |
+          set -e
+          for cmd in docx-build docx-build-all dac-init gen-stock-hashes.py \
+                     lint-frontmatter.py lint-mermaid.py lint-encoding.py \
+                     vale pandoc pre-commit markdownlint-cli2 mmdc; do
+            command -v "$cmd" >/dev/null || { echo "MISSING: $cmd"; exit 1; }
+          done
+          pandoc -v | head -1
+          vale -v
+          pre-commit --version
+          python3 -c "import docx_builder; print('docx_builder import OK')"
+
+      - name: Baked starter tree is intact and hash-history-complete
+        run: |
+          set -e
+          test -f /opt/dac-toolkit/starter/manifest.json
+          test -f /opt/dac-toolkit/starter/stock-hashes.json
+          count=$(python3 -c "import json;print(len(json.load(open('/opt/dac-toolkit/starter/manifest.json'))['files']))")
+          echo "managed files in manifest: $count"
+          test "$count" -ge 40
+          gen-stock-hashes.py --starter /opt/dac-toolkit/starter/files \
+            --history /opt/dac-toolkit/starter/stock-hashes.json --verify
+
+      - name: dac-init behaves (install, idempotence, provenance)
+        run: |
+          set -e
+          repo=$(mktemp -d); mkdir "$repo/.git"
+          dac-init --path "$repo" --dry-run | tee /tmp/dry.out
+          grep -q "already present" /tmp/dry.out
+          dac-init --path "$repo" | tee /tmp/run1.out
+          grep -qE "^[1-9][0-9]* installed" /tmp/run1.out
+          dac-init --path "$repo" | tee /tmp/run2.out
+          grep -q "^0 installed" /tmp/run2.out
+          python3 -c "
+          import json,sys
+          d=json.load(open('$repo/dac/.dac-manifest.json'))
+          assert d['files'], 'manifest recorded no files'
+          print('provenance recorded for', len(d['files']), 'files')"
+
+      - name: docx-build renders a document end to end
+        run: |
+          set -e
+          work=$(mktemp -d); cd "$work"
+          cat > doc.md <<'EOF'
+          ---
+          title: "QA Smoke Document"
+          doc_type: "reference"
+          domain: "qa"
+          department: "QA"
+          owner: "QA"
+          status: "Draft"
+          version: "0.1"
+          date: "2026-07-25"
+          author: "QA"
+          ---
+
+          # QA Smoke Document
+
+          This reference confirms the toolchain renders a document.
+
+          ## A Table
+
+          | Key | Value |
+          |---|---|
+          | works | yes |
+          EOF
+          docx-build doc.md --org /opt/dac-toolkit/starter/files/dac/org.yaml.example \
+            --output out.docx
+          test -s out.docx
+          size=$(stat -c%s out.docx)
+          echo "rendered out.docx ($size bytes)"
+          test "$size" -gt 10000

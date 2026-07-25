@@ -2,6 +2,10 @@ name: Build and Push Dev Container Image
 
 on:
   push:
+    # A version tag builds and publishes the same image under that tag —
+    # the stable-release channel consumers pin to (alongside the digest).
+    tags:
+      - 'v*'
     branches:
       - main
     paths:
@@ -22,7 +26,7 @@ env:
   # Pinned ref of the dac-starter repo vendored into the image for
   # dac-init/dac-update. Bump deliberately when starter changes merge —
   # this is the one human step in the stock-config release path.
-  STARTER_REF: 5c5a42bc7d4c4b4b4800f8fee14cd136e688a065
+  STARTER_REF: v1.0.0
 
 jobs:
   build-and-push:
@@ -76,6 +80,7 @@ jobs:
           tags: |
             type=raw,value=latest
             type=raw,value=${{ github.sha }}
+            type=ref,event=tag
           labels: |
             org.opencontainers.image.title=dac-toolkit
             org.opencontainers.image.description=Documentation-as-code toolchain (docx_builder, Quarto, Pandoc, Mermaid CLI, Vale) for OpenShift Dev Spaces
