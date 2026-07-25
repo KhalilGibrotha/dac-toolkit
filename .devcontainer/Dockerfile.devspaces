@@ -122,7 +122,18 @@ COPY docx_builder /opt/dac-toolkit/docx_builder
 COPY scripts /opt/dac-toolkit/scripts
 COPY presentations /opt/dac-toolkit/presentations
 COPY diagrams /opt/dac-toolkit/diagrams
+# Stock starter tree for dac-init/dac-update (conffile model — see the design
+# memo). CI stages starter-vendor/ from a pinned ref of the dac-starter repo
+# (checkout + verify + manifest; see docker-build.yml). For a LOCAL build,
+# stage it first:
+#   git clone https://github.com/KhalilGibrotha/dac-starter starter-vendor-src
+#   mkdir -p starter-vendor/files && cp -r starter-vendor-src/. starter-vendor/files/
+#   rm -rf starter-vendor/files/.git && cp starter-vendor-src/stock-hashes.json starter-vendor/
+#   python scripts/gen-stock-hashes.py --starter starter-vendor-src \
+#     --emit-manifest starter-vendor/manifest.json
+COPY starter-vendor /opt/dac-toolkit/starter
 RUN pip install --no-cache-dir --no-deps /opt/dac-toolkit/docx_builder \
+    && chmod +x /opt/dac-toolkit/scripts/dac-init \
     && chmod -R g+rx /opt/dac-toolkit
 ENV DAC_TOOLKIT_HOME=/opt/dac-toolkit
 ENV PATH="/opt/dac-toolkit/scripts:${PATH}"
