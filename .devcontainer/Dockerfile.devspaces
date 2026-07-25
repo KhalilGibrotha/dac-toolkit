@@ -84,6 +84,12 @@ RUN npm install -g "@mermaid-js/mermaid-cli@${MERMAID_CLI_VERSION}" \
     # markdownlint-cli2: same gate CI runs (npx would download it per run;
     # baking it in keeps lint offline-capable and version-stable)
     && npm install -g "markdownlint-cli2@0.23.0" \
+    # 0.23.0 bundles js-yaml 5.2.0 (GHSA-pm4m-ph32-ghv5, HIGH, fixed in
+    # 5.2.2). Upgrade the transitive dep in place so the tool stays at the
+    # CI-pinned version while the Trivy gate passes; drop this when the
+    # markdownlint-cli2 pin advances past a release that ships the fix.
+    && (cd /usr/local/lib/node_modules/markdownlint-cli2 \
+        && npm install --no-audit --no-fund "js-yaml@^5.2.2") \
     && npm cache clean --force \
     && chmod -R g+rx /opt/puppeteer-cache
 
