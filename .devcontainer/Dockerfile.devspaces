@@ -23,6 +23,14 @@ RUN dnf config-manager --set-disabled rhel-9-for-x86_64-appstream-rpms \
                                       rhel-9-for-x86_64-baseos-rpms 2>/dev/null; \
     true
 
+# ── Patch the base layer ─────────────────────────────────────────────────────
+# The base image tag lags published RPM erratas, and the GHA layer cache can
+# keep a stale base for weeks. Upgrading here picks up every fixable CVE at
+# build time; the Trivy gate below verifies it worked. If the gate ever fails
+# on a package this upgrade should have fixed, the cached layer is stale —
+# re-run the workflow with the cache invalidated (or bump this comment).
+RUN dnf upgrade -y --nodocs && dnf clean all
+
 # ── System dependencies for Chromium (Puppeteer) and Pandoc ──────────────────
 RUN dnf install -y --nodocs \
     # Chromium runtime libraries
