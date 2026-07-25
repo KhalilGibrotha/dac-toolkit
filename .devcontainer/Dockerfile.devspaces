@@ -73,6 +73,9 @@ RUN curl -fsSL "https://github.com/quarto-dev/quarto-cli/releases/download/v${QU
 ENV PUPPETEER_CACHE_DIR=/opt/puppeteer-cache
 ARG MERMAID_CLI_VERSION=11.16.0
 RUN npm install -g "@mermaid-js/mermaid-cli@${MERMAID_CLI_VERSION}" \
+    # markdownlint-cli2: same gate CI runs (npx would download it per run;
+    # baking it in keeps lint offline-capable and version-stable)
+    && npm install -g "markdownlint-cli2@0.23.0" \
     && npm cache clean --force \
     && chmod -R g+rx /opt/puppeteer-cache
 
@@ -102,7 +105,11 @@ RUN pip install --no-cache-dir \
     # matplotlib draws figures; pymupdf rasterizes slides for the QA gallery
     "jupyter>=1.0" \
     "matplotlib>=3.8" \
-    "pymupdf>=1.24"
+    "pymupdf>=1.24" \
+    # content repos ship an opt-in .pre-commit-config.yaml; without the binary
+    # in the image, a hook installed by `pre-commit install` fails every commit
+    # with "pre-commit not found. Did you forget to activate your virtualenv?"
+    "pre-commit>=3.6"
 
 # ── Bake the toolkit itself into the image ───────────────────────────────────
 # The image carries docx_builder (installed) plus the scripts and the

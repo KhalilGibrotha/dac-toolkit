@@ -99,14 +99,22 @@ def find_config(start_dir: str, filename: str = "docx-build.yml") -> Optional[st
     """
     Walk up the directory tree from start_dir looking for filename.
 
+    At each level two locations are checked, in order: the directory itself,
+    then its dac/ subdirectory. The dac/ fallback supports content repos that
+    keep the DaC machinery in a dedicated folder instead of the repo root, so
+    a bare `docx-build-all` works in both layouts.
+
     Returns the absolute path to the config file, or None if not found before
     reaching the filesystem root.
     """
     current = os.path.abspath(start_dir)
     while True:
-        candidate = os.path.join(current, filename)
-        if os.path.isfile(candidate):
-            return candidate
+        for candidate in (
+            os.path.join(current, filename),
+            os.path.join(current, "dac", filename),
+        ):
+            if os.path.isfile(candidate):
+                return candidate
         parent = os.path.dirname(current)
         if parent == current:       # filesystem root reached
             return None
@@ -147,6 +155,12 @@ def load_config(path: Optional[str] = None) -> BatchConfig:
         raise ConfigError(f"YAML parse error in {path}: {e}") from e
 
     config_dir = os.path.dirname(path)
+    # A config living in a dac/ machinery folder anchors its relative paths at
+    # the repo root (dac/'s parent), not at dac/ itself. scan: docs/ means
+    # <repo>/docs in both layouts, so a repo can move docx-build.yml into dac/
+    # without rewriting every path in it.
+    if os.path.basename(config_dir) == "dac":
+        config_dir = os.path.dirname(config_dir)
     errors: list[str] = []
 
     # ── Required fields ───────────────────────────────────────────────────────
