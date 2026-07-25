@@ -1,27 +1,28 @@
-# DAC Toolkit — Claude Instructions
+# dac-toolkit — Claude Instructions
 
-This is the public Documentation-as-Code toolkit. It provides the rendering engine, devcontainer, and automation scripts.
+The engine of the docs-as-code system: a self-contained container image that
+content repos consume via devfile and CI. Content repos never clone this repo.
 
-## Related Repos
+## Architecture
 
-This toolkit is designed to work alongside a private content repo and optionally
-a knowledge-base vault. Each content repo has its own CLAUDE.md with authoring
-conventions (document model, front matter requirements, style guide).
-
-## This Repo Contains
-
-- `docx_builder/` — Python package: Markdown + YAML → styled DOCX
-- `.devcontainer/` — Offline devcontainer (Dockerfile, Dockerfile.devspaces, docker-compose)
-- `scripts/` — build-docs.sh, render-diagrams.sh, render-decks.sh, lint-decks.py, vale-bootstrap.sh
-- `presentations/` — Quarto → PowerPoint example (generic template, code theme, matplotlib palette). See presentations/README.md
-- `templates/` — Document templates (generic, no org identity)
-- `examples/` — Example org.yaml and sample inputs
+- **Image** (`ghcr.io/khalilgibrotha/dac-toolkit`): docx_builder installed as
+  a package (`docx-build`, `docx-build-all`); `scripts/` on PATH at
+  `/opt/dac-toolkit/scripts`; Vale + synced styles, markdownlint-cli2,
+  pre-commit, Pandoc, Quarto, Mermaid CLI, prose-tuned vim/nano baked in.
+- **`/opt/dac-toolkit/starter/`**: the dac-starter repo vendored at the pinned
+  `STARTER_REF` (env in `docker-build.yml`), plus `manifest.json` and the
+  append-only `stock-hashes.json`. This is the stock source for `dac-init`.
+- **Layout contract:** `docx-build-all` finds `docx-build.yml` at a content
+  repo's root or in its `dac/` folder; a `dac/` config anchors relative paths
+  at the repo root.
 
 ## Key Constraints
 
-1. **No org-specific content.** This is a public repo. Org identity comes from the content repo's `vars/org.yaml` via the `--org` flag.
-2. **Offline by design.** The devcontainer runs with `network_mode: "none"`. All dependencies (Python, Node, mmdc, Vale, Chromium) are baked into the Docker image at build time.
-3. **Vale styles are pre-baked.** `.vale-bootstrap.ini` defines packages downloaded during `docker build`. `scripts/vale-bootstrap.sh` copies them into content workspaces at container start.
+1. **Public repo.** No organization identifiers anywhere — files, commit
+   messages, PR and issue text. Org identity enters at build time in content
+   repos via `--org`.
+2. **Branch flow `develop → main`.** The image builds only on push to `main`
+   (path-filtered) and on `v*` tags.
 
 ## Critical Fragile Areas
 
@@ -31,39 +32,48 @@ conventions (document model, front matter requirements, style guide).
 4. `_fix_zoom_attribute()` in builder.py — post-save ZIP patch; required
 5. Schema ordering in xml_helpers.py — tcBorders before shd; pBdr at index 0
 
+## Release Process
+
+1. Merge `develop → main`. The docker-build workflow runs: starter vendor +
+   hash-history gate → Trivy gate (HIGH/CRITICAL, ignore-unfixed) → push
+   `:latest` + `:sha` → provenance attestation + CycloneDX SBOM + cosign
+   keyless signing.
+2. Dispatch the **Release QA** workflow (runs inside the published image:
+   tool presence, starter-tree integrity, dac-init contract, end-to-end
+   render). Green is the precondition for tagging — the tag build verifies
+   this mechanically.
+3. Tag `vX.Y.Z` on main — the image publishes under that tag. Create the
+   GitHub release with the digest and the cosign verify block.
+4. **Starter changes:** after any edit to dac-starter's managed files, run
+   `gen-stock-hashes.py --starter <checkout> --append` there and commit
+   `stock-hashes.json`, or the image build gate fails. Bumping `STARTER_REF`
+   in `docker-build.yml` is the deliberate human step that ships new stock
+   configs into the image.
+
+## Trivy Gate Fix Patterns
+
+- **Base-layer RPM CVEs:** `dnf upgrade` early in the Dockerfile handles
+  fixable erratas. If the gate still fires on a fixable RPM, the GHA layer
+  cache is stale — invalidate and rebuild.
+- **npm transitive CVEs:** never `npm install` a fix inside a globally
+  installed package (npm nests the package inside itself). Pattern: dedicated
+  `/opt/<tool>` install with a `package.json` using `overrides`, bin
+  symlinked onto PATH. Example: `/opt/markdownlint`.
+- **Prebuilt Go binaries** (gh, vale, esbuild): Go-stdlib CVEs compiled in
+  upstream; path-scoped `skip-files` entries in the workflow, version-pinned
+  so a bump re-asks the question.
+
 ## Testing Changes
 
 ```bash
-# Build a sample document
-docx-build examples/sample_input.md --output /tmp/test.docx
-
-# Build with org identity
-docx-build examples/sample_input.md --org examples/org.yaml --output /tmp/test.docx
-
-# Run tests
+docx-build examples/sample_input.md --org examples/org.yaml --output /tmp/t.docx
 cd docx_builder && python -m pytest tests/
+# dac-init smoke (no image needed): stage a vendor dir, then
+python scripts/dac-init --path <tmp-repo> --starter-dir <vendor> --dry-run
 ```
 
 ## Cross-Repo Tooling
 
-Repo management scripts live in a sibling repo:
-- Path: `../claude-repo-tools/scripts/`
-- Repo: https://github.com/KhalilGibrotha/claude-repo-tools
-
-Available commands:
-```bash
-# Cross-repo health check (branches, PRs, drift)
-bash ../claude-repo-tools/scripts/check-status.sh
-
-# Create release PR (develop → main) and optionally merge
-bash ../claude-repo-tools/scripts/release.sh dac-toolkit "Release message" --merge
-
-# Delete merged/orphaned branches
-bash ../claude-repo-tools/scripts/cleanup-branches.sh dac-toolkit
-
-# Build a DOCX and print heading tree for verification
-bash ../claude-repo-tools/scripts/verify-docx.sh <path-to-markdown-file>
-
-# Lint content repo markdown for LLM artifacts (run against the content repo, not dac-toolkit)
-bash ../claude-repo-tools/scripts/lint-markdown.sh architecture-docs
-```
+Repo-management scripts live in `../claude-repo-tools` — see that repo's
+README for the current command set. `verify-docx.sh` (render + heading tree)
+is the one used routinely from here.

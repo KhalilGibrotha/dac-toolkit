@@ -36,10 +36,26 @@ jobs:
       packages: write
       id-token: write        # cosign keyless signing + attestation OIDC
       attestations: write    # actions/attest-*
+      actions: read          # tag builds verify a green Release QA run
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      # Hard gate: a version tag only publishes if Release QA passed on this
+      # exact commit. Keeps "QA before tagging" mechanical, not procedural.
+      - name: Require green Release QA on this commit (tag builds only)
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          n=$(gh run list -R "$GITHUB_REPOSITORY" --workflow qa.yml \
+            --json headSha,conclusion \
+            --jq "[.[] | select(.headSha==\"$GITHUB_SHA\" and .conclusion==\"success\")] | length")
+          if [ "$n" -eq 0 ]; then
+            echo "::error::No successful Release QA run for $GITHUB_SHA. Dispatch 'Release QA', wait for green, then re-push the tag."
+            exit 1
+          fi
 
       - name: Checkout dac-starter (pinned ref)
         uses: actions/checkout@v4
