@@ -2,6 +2,10 @@ name: Build and Push Dev Container Image
 
 on:
   push:
+    # A version tag builds and publishes the same image under that tag —
+    # the stable-release channel consumers pin to (alongside the digest).
+    tags:
+      - 'v*'
     branches:
       - main
     paths:
@@ -19,6 +23,10 @@ on:
 
 env:
   IMAGE: ghcr.io/khalilgibrotha/dac-toolkit
+  # Pinned ref of the dac-starter repo vendored into the image for
+  # dac-init/dac-update. Bump deliberately when starter changes merge —
+  # this is the one human step in the stock-config release path.
+  STARTER_REF: v1.0.0
 
 jobs:
   build-and-push:
@@ -32,6 +40,28 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Checkout dac-starter (pinned ref)
+        uses: actions/checkout@v4
+        with:
+          repository: KhalilGibrotha/dac-starter
+          ref: ${{ env.STARTER_REF }}
+          path: starter-vendor-src
+
+      # Gate: the image build fails if any managed file's current hash is
+      # missing from the starter's append-only stock-hash history — the
+      # history cannot silently rot.
+      - name: Verify stock-hash history and stage the vendor tree
+        run: |
+          python3 scripts/gen-stock-hashes.py --starter starter-vendor-src --verify
+          mkdir -p starter-vendor/files
+          cp -r starter-vendor-src/. starter-vendor/files/
+          rm -rf starter-vendor/files/.git
+          cp starter-vendor-src/stock-hashes.json starter-vendor/
+          python3 scripts/gen-stock-hashes.py --starter starter-vendor-src \
+            --emit-manifest starter-vendor/manifest.json \
+            --starter-version "${STARTER_REF}" \
+            --engine-image "${IMAGE}:${GITHUB_SHA}"
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
@@ -50,6 +80,7 @@ jobs:
           tags: |
             type=raw,value=latest
             type=raw,value=${{ github.sha }}
+            type=ref,event=tag
           labels: |
             org.opencontainers.image.title=dac-toolkit
             org.opencontainers.image.description=Documentation-as-code toolchain (docx_builder, Quarto, Pandoc, Mermaid CLI, Vale) for OpenShift Dev Spaces

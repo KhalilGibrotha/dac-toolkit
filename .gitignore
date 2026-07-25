@@ -30,3 +30,7 @@ Thumbs.db
 
 # Claude Code
 .claude/
+
+# Staged locally for image builds (CI recreates it from the pinned starter ref)
+starter-vendor/
+starter-vendor-src/

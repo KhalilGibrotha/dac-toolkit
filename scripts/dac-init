@@ -1,0 +1,103 @@
+#!/usr/bin/env python3
+"""dac-init — install missing DaC per-repo starting points.
+
+Copies the stock starter files (baked into the toolkit image at
+/opt/dac-toolkit/starter) into the current repo, installing ONLY what is
+missing. Existing files are never touched without --force, and --force saves
+the displaced file as <file>.orig first. Running twice is a no-op. Running it
+at all is optional — nothing in the build or lint path depends on it.
+
+    dac-init --dry-run       show what would be installed
+    dac-init                 install missing files
+    dac-init --force         also replace existing files (saves .orig)
+
+Outside a workspace:
+    podman run --rm -v "$PWD:/work:Z" -w /work \\
+      ghcr.io/khalilgibrotha/dac-toolkit:latest dac-init --dry-run
+"""
+from __future__ import annotations
+
+import argparse
+import shutil
+import sys
+from datetime import date
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from dac_common import (  # noqa: E402
+    REPO_MANIFEST, STARTER_DEFAULT, atomic_write_bytes, atomic_write_json,
+    load_json, looks_like_repo_root, managed_files, nhash,
+)
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description=__doc__,
+                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--dry-run", action="store_true", help="report; write nothing")
+    ap.add_argument("--force", action="store_true",
+                    help="replace existing managed files too (saves <file>.orig)")
+    ap.add_argument("--path", default=".", help="repo root (default: cwd)")
+    ap.add_argument("--starter-dir", default=STARTER_DEFAULT, help=argparse.SUPPRESS)
+    args = ap.parse_args()
+
+    repo = Path(args.path).resolve()
+    starter = Path(args.starter_dir)
+    files_dir = starter / "files"
+    manifest = load_json(starter / "manifest.json")
+
+    if not files_dir.is_dir():
+        print(f"dac-init: starter tree not found at {files_dir}\n"
+              "Run inside the dac-toolkit image, or pass --starter-dir.",
+              file=sys.stderr)
+        return 3
+    if args.path == "." and not looks_like_repo_root(repo):
+        print(f"dac-init: {repo} does not look like a repo root (no .git).\n"
+              "cd to the repo root or pass --path <dir>.", file=sys.stderr)
+        return 3
+
+    version = manifest.get("starter_version", "unknown")
+    engine = manifest.get("engine_image", "unknown")
+    print(f"dac-init (starter {version}, engine {engine})\n")
+
+    to_install, present = [], []
+    for rel in managed_files(files_dir):
+        (to_install, present)[(repo / rel).exists() and not args.force].append(rel)
+
+    for rel in to_install:
+        tag = "would install" if args.dry_run else "installed    "
+        print(f"  {tag}  {rel}")
+    for rel in present:
+        print(f"  present, skip  {rel}")
+
+    installed_hashes = {}
+    if not args.dry_run:
+        for rel in to_install:
+            src, dst = files_dir / rel, repo / rel
+            if dst.exists():                       # only reachable with --force
+                shutil.copy2(dst, dst.with_name(dst.name + ".orig"))
+                print(f"  saved          {rel}.orig")
+            atomic_write_bytes(dst, src.read_bytes())
+            installed_hashes[rel] = nhash(src)
+
+        if installed_hashes:
+            record = load_json(repo / REPO_MANIFEST)
+            record.setdefault("dac_manifest_version", 1)
+            record["starter_version"] = version
+            record["engine_image"] = engine
+            record["installed"] = date.today().isoformat()
+            record.setdefault("files", {}).update(installed_hashes)
+            atomic_write_json(repo / REPO_MANIFEST, record)
+
+    n, p = len(to_install), len(present)
+    verb = "to install" if args.dry_run else "installed"
+    print(f"\n{n} {verb}, {p} already present."
+          + (" Run without --dry-run to apply." if args.dry_run and n else ""))
+    if n and not (repo / "dac/org.yaml").exists():
+        print("Next step: copy dac/org.yaml.example to dac/org.yaml and fill it in.")
+    print("tip: run on a clean git tree, then `git diff` to review and "
+          "`git checkout --` to undo.")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
