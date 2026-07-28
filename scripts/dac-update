@@ -1,0 +1,135 @@
+#!/usr/bin/env python3
+"""dac-update — sync a repo's managed DaC files to the current stock revision.
+
+Conffile model: for every file dac-init could install, compare the adopter's
+current copy against the stock-hash history (every stock revision ever
+shipped, see gen-stock-hashes.py) and the new stock version, then act:
+
+  * byte-identical (normalized) to the NEW stock version   -> skip
+  * matches ANY earlier known stock hash (unmodified, old) -> replace in place
+  * matches no known stock hash (locally customized)       -> write <file>.new
+  * missing entirely (added to the managed set since adopt)-> install
+
+A locally customized file is never overwritten. Comparison uses normalized
+content (BOM stripped, CRLF -> LF, one trailing newline) so a Windows
+checkout's line endings alone never register as a customization.
+
+Requires dac/.dac-manifest.json — the record dac-init writes. Run dac-init
+first if this repo has never adopted the managed file set.
+
+    dac-update --dry-run       report every action, write nothing
+    dac-update                 apply
+    dac-update --path <dir>    target a repo other than cwd (skips the .git check)
+
+Outside a workspace:
+    podman run --rm -v "$PWD:/work:Z" -w /work \\
+      ghcr.io/khalilgibrotha/dac-toolkit:latest dac-update --dry-run
+"""
+from __future__ import annotations
+
+import argparse
+import sys
+from datetime import date
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from dac_common import (  # noqa: E402
+    REPO_MANIFEST, STARTER_DEFAULT, atomic_write_bytes, atomic_write_json,
+    load_json, looks_like_repo_root, managed_files, nhash,
+)
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description=__doc__,
+                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--dry-run", action="store_true", help="report; write nothing")
+    ap.add_argument("--path", default=".", help="repo root (default: cwd)")
+    ap.add_argument("--starter-dir", default=STARTER_DEFAULT, help=argparse.SUPPRESS)
+    args = ap.parse_args()
+
+    repo = Path(args.path).resolve()
+    starter = Path(args.starter_dir)
+    files_dir = starter / "files"
+    manifest = load_json(starter / "manifest.json")
+    history = load_json(starter / "stock-hashes.json")
+
+    if not files_dir.is_dir():
+        print(f"dac-update: starter tree not found at {files_dir}\n"
+              "Run inside the dac-toolkit image, or pass --starter-dir.",
+              file=sys.stderr)
+        return 3
+    if args.path == "." and not looks_like_repo_root(repo):
+        print(f"dac-update: {repo} does not look like a repo root (no .git).\n"
+              "cd to the repo root or pass --path <dir>.", file=sys.stderr)
+        return 3
+
+    record_path = repo / REPO_MANIFEST
+    if not record_path.is_file():
+        print(f"dac-update: no {REPO_MANIFEST} found in {repo}.\n"
+              "This repo has not adopted the managed file set yet — run "
+              "dac-init first, then dac-update.", file=sys.stderr)
+        return 3
+    record = load_json(record_path)
+
+    version = manifest.get("starter_version", "unknown")
+    engine = manifest.get("engine_image", "unknown")
+    print(f"dac-update (starter {version}, engine {engine})\n")
+
+    counts = {"install": 0, "replace": 0, "keep+new": 0, "skip": 0}
+    new_hashes = {}
+
+    for rel in managed_files(files_dir):
+        src = files_dir / rel
+        new_hash = nhash(src)
+        new_hashes[rel] = new_hash
+        dst = repo / rel
+        tag = "would " if args.dry_run else ""
+
+        if not dst.exists():
+            counts["install"] += 1
+            print(f"  {tag}install   {rel}")
+            if not args.dry_run:
+                atomic_write_bytes(dst, src.read_bytes())
+            continue
+
+        cur_hash = nhash(dst)
+        known = set(history.get(rel, []))
+        known.add(new_hash)  # the stock's own hash is trivially "known stock"
+
+        if cur_hash == new_hash:
+            counts["skip"] += 1
+            print(f"  skip      {rel}  (already current)")
+        elif cur_hash in known:
+            counts["replace"] += 1
+            print(f"  {tag}replace   {rel}  (unmodified stock, older revision "
+                  f"-> {version})")
+            if not args.dry_run:
+                atomic_write_bytes(dst, src.read_bytes())
+        else:
+            counts["keep+new"] += 1
+            print(f"  keep+new  {rel}  (locally customized -> {rel}.new)")
+            if not args.dry_run:
+                atomic_write_bytes(dst.with_name(dst.name + ".new"), src.read_bytes())
+
+    if not args.dry_run:
+        record.setdefault("dac_manifest_version", 1)
+        record.setdefault("installed", date.today().isoformat())  # never overwrite if present
+        record["starter_version"] = version
+        record["engine_image"] = engine
+        record["updated"] = date.today().isoformat()
+        record.setdefault("files", {}).update(new_hashes)
+        atomic_write_json(record_path, record)
+
+    verb = "would be " if args.dry_run else ""
+    print(f"\n{counts['install']} installed, {counts['replace']} replaced, "
+          f"{counts['keep+new']} {verb}left as-is with a .new written for review, "
+          f"{counts['skip']} already current.")
+    if counts["keep+new"]:
+        print("Review the .new file(s), merge what you want, then delete the .new copy.")
+    if args.dry_run and any(counts[k] for k in ("install", "replace", "keep+new")):
+        print("Run without --dry-run to apply.")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
