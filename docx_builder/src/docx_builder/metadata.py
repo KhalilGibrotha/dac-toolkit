@@ -91,12 +91,18 @@ def parse_front_matter(raw_text: str) -> tuple[dict, str]:
         (meta, body_md) where meta is a dict and body_md is the markdown
         content after the front matter block.
     """
-    fm_match = re.match(r'^---\s*\n(.*?)\n---\s*\n', raw_text, re.DOTALL)
+    # A UTF-8 BOM ahead of the opening --- defeats this match, which made the
+    # document invisible to the builder with no diagnostic. Windows editors and
+    # PowerShell's Set-Content -Encoding utf8 write one by default, so strip it
+    # instead of silently skipping the file.
+    text = raw_text.lstrip('﻿')
+
+    fm_match = re.match(r'^---\s*\n(.*?)\n---\s*\n', text, re.DOTALL)
     if fm_match:
         meta    = yaml.safe_load(fm_match.group(1)) or {}
-        body_md = raw_text[fm_match.end():]
+        body_md = text[fm_match.end():]
         return meta, body_md
-    return {}, raw_text
+    return {}, text
 
 
 def extract_headings(body_md: str) -> list[tuple]:

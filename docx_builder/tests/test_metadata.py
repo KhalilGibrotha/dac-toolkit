@@ -128,3 +128,11 @@ def test_extract_headings_strips_whitespace():
     headings = extract_headings(body)
     # Text is numbered; verify the title portion (after the em dash) is trimmed
     assert headings[0][1].endswith("Heading with extra space")
+
+
+def test_parse_front_matter_tolerates_utf8_bom():
+    """A BOM ahead of --- used to hide the document from the builder entirely."""
+    raw = '﻿' + '---\ntitle: "BOM Doc"\nstatus: "Draft"\nversion: "0.1"\n---\n\n# BOM Doc\n'
+    meta, body = parse_front_matter(raw)
+    assert meta["title"] == "BOM Doc"
+    assert body.lstrip().startswith("# BOM Doc")
