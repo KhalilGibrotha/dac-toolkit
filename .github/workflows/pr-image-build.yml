@@ -1,0 +1,51 @@
+name: PR Image Build
+
+# Proves the production image still builds before a merge touches its inputs.
+# Runs only when image-relevant paths change (native paths filter — no
+# hand-rolled diff detection, which fails silently on shallow checkouts).
+# No push: publishing stays with docker-build.yml on main and tags.
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - ".devcontainer/**"
+      - "docx_builder/**"
+      - "scripts/**"
+      - "vale/**"
+      - "presentations/**"
+      - "diagrams/**"
+      - ".github/workflows/pr-image-build.yml"
+
+env:
+  STARTER_REF: v1.0.0
+
+jobs:
+  image-build:
+    name: Image builds (no push)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Checkout dac-starter (pinned ref)
+        uses: actions/checkout@v4
+        with:
+          repository: KhalilGibrotha/dac-starter
+          ref: ${{ env.STARTER_REF }}
+          path: starter-vendor-src
+      - name: Verify stock-hash history and stage the vendor tree
+        run: |
+          python3 scripts/gen-stock-hashes.py --starter starter-vendor-src --verify
+          mkdir -p starter-vendor/files
+          cp -r starter-vendor-src/. starter-vendor/files/
+          rm -rf starter-vendor/files/.git
+          cp starter-vendor-src/stock-hashes.json starter-vendor/
+          python3 scripts/gen-stock-hashes.py --starter starter-vendor-src \
+            --emit-manifest starter-vendor/manifest.json \
+            --starter-version "${STARTER_REF}" \
+            --engine-image "pr-check-only"
+      - name: Build the production image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: .devcontainer/Dockerfile.devspaces
+          push: false
