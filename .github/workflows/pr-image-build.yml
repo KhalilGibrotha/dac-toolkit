@@ -25,9 +25,9 @@ jobs:
     name: Image builds (no push)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Checkout dac-starter (pinned ref)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: KhalilGibrotha/dac-starter
           ref: ${{ env.STARTER_REF }}

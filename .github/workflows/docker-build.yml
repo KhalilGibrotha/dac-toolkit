@@ -40,7 +40,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       # Hard gate: a version tag only publishes if Release QA passed on this
       # exact commit. Keeps "QA before tagging" mechanical, not procedural.
@@ -58,7 +58,7 @@ jobs:
           fi
 
       - name: Checkout dac-starter (pinned ref)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: KhalilGibrotha/dac-starter
           ref: ${{ env.STARTER_REF }}
