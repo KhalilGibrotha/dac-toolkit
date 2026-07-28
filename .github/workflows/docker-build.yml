@@ -108,7 +108,7 @@ jobs:
       # Build once into the local daemon so the scan gates publication rather
       # than trailing it. The push below reuses this layer cache.
       - name: Build for scanning
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: .devcontainer/Dockerfile.devspaces
@@ -151,7 +151,7 @@ jobs:
 
       - name: Push image
         id: push
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: .devcontainer/Dockerfile.devspaces

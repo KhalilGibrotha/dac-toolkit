@@ -44,7 +44,7 @@ jobs:
             --starter-version "${STARTER_REF}" \
             --engine-image "pr-check-only"
       - name: Build the production image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: .devcontainer/Dockerfile.devspaces
