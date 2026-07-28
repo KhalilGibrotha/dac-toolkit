@@ -19,8 +19,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Install docx_builder
-        run: pip install ./docx_builder
+      - name: Install docx_builder and pytest
+        run: pip install pytest ./docx_builder
       - name: Run test suites
         run: |
           python -m pytest scripts/tests -q
