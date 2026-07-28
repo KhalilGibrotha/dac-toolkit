@@ -90,7 +90,7 @@ jobs:
       # image identifies itself instead of inheriting the UBI base's labels.
       - name: Derive tags and OCI labels
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ${{ env.IMAGE }}
           tags: |
