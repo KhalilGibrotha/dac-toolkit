@@ -65,9 +65,19 @@ fi
 EXPORTS="$CONTENT_DIR/exports"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
-# Look for logo and org config in the content repo
-LOGO="$CONTENT_DIR/assets/logo/logo.png"
-ORG_YAML="$CONTENT_DIR/vars/org.yaml"
+# Look for logo and org config in the content repo.
+# The dac/ layout is canonical; root-level paths remain as a legacy fallback.
+if [ -f "$CONTENT_DIR/dac/org.yaml" ]; then
+  ORG_YAML="$CONTENT_DIR/dac/org.yaml"
+else
+  ORG_YAML="$CONTENT_DIR/vars/org.yaml"
+fi
+
+if [ -f "$CONTENT_DIR/dac/logo.png" ]; then
+  LOGO="$CONTENT_DIR/dac/logo.png"
+else
+  LOGO="$CONTENT_DIR/assets/logo/logo.png"
+fi
 
 mkdir -p "$EXPORTS"
 
