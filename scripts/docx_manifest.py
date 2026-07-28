@@ -205,8 +205,22 @@ def load_manifest(manifest_path: Path, *, content_root: Path) -> list[DocumentSp
     if not isinstance(documents, list) or not documents:
         raise ManifestError(f"Manifest {manifest_path} does not define a non-empty 'documents' list.")
 
-    default_org = content_root / "vars" / "org.yaml"
-    default_logo = content_root / "assets" / "logo" / "logo.png"
+    # The dac/ layout is canonical; root-level paths are the legacy fallback.
+    # DAC_ORG_YAML / DAC_LOGO override both, for callers with bespoke layouts.
+    env_org = os.environ.get("DAC_ORG_YAML", "").strip()
+    env_logo = os.environ.get("DAC_LOGO", "").strip()
+    if env_org:
+        default_org = resolve_path(content_root, env_org)
+    elif (content_root / "dac" / "org.yaml").is_file():
+        default_org = content_root / "dac" / "org.yaml"
+    else:
+        default_org = content_root / "vars" / "org.yaml"
+    if env_logo:
+        default_logo = resolve_path(content_root, env_logo)
+    elif (content_root / "dac" / "logo.png").is_file():
+        default_logo = content_root / "dac" / "logo.png"
+    else:
+        default_logo = content_root / "assets" / "logo" / "logo.png"
 
     specs: list[DocumentSpec] = []
     for index, entry in enumerate(documents, start=1):

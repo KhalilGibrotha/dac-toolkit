@@ -329,10 +329,9 @@ Scan is the only one of the three that understands the `dac/` layout for its
 config file — it finds `dac/docx-build.yml` on its own and anchors relative
 paths at the repo root. For org identity and logo, the shell pipeline now
 checks `dac/` first, falling back to the legacy `vars/org.yaml` /
-`assets/logo/logo.png` paths automatically. The manifest wrapper still
-defaults to the legacy paths only; under `dac/`, point it at `dac/`
-explicitly (shown below). Migrating that remaining default is open
-engineering work, not yet done.
+`assets/logo/logo.png` paths automatically. The manifest wrapper follows
+the same order, and both honor `DAC_ORG_YAML` / `DAC_LOGO` environment
+overrides for bespoke layouts.
 
 ### When to choose which
 
@@ -406,10 +405,9 @@ docs/` means `<repo>/docs`, and the shipped starter config's `exclude: -
 dac/` follows the same rule. `--org` and `--logo` flags override the config
 keys.
 
-> **Logo auto-detection only checks `assets/logo/logo.png` at the repo
-> root**, the legacy path, even when the config lives in `dac/`. Under the
-> `dac/` layout, set `logo: dac/logo.png` explicitly (uncomment it in the
-> starter's config) rather than relying on auto-detect. `org:` has no
+> **Logo auto-detection checks `dac/logo.png` first**, then the legacy
+> `assets/logo/logo.png` at the repo root. Drop the logo at either path and
+> the covers pick it up; an explicit `logo:` key overrides both. `org:` has no
 > auto-detect fallback either way — set it explicitly or the cover falls
 > back to front matter, then compiled-in defaults.
 
@@ -442,10 +440,10 @@ The render wrapper:
 - defaults to `--manifest manifests/render-manifest.yaml` if you omit the
   flag — under `dac/`, always pass `--manifest dac/render-manifest.yaml`
   explicitly
-- falls back to `vars/org.yaml` and `assets/logo/logo.png` when present and
-  no per-document `org:`/`logo:` is set — this fallback does not know about
-  `dac/`, so set `org: dac/org.yaml` (and `logo:`, if you use one) per
-  document under the `dac/` layout, as shown above
+- falls back to `dac/org.yaml` and `dac/logo.png` when present and no
+  per-document `org:`/`logo:` is set, then to the legacy `vars/org.yaml` /
+  `assets/logo/logo.png` paths; `DAC_ORG_YAML` / `DAC_LOGO` environment
+  variables override both
 - creates a local `.venv-docx-render/` and installs `docx-build` automatically if needed
 - rewrites Kroki-supported fenced diagrams to generated PNG assets before calling `docx-build`
 

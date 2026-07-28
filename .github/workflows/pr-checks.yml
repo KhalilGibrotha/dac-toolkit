@@ -1,0 +1,93 @@
+name: PR Checks
+
+# Pre-merge gates. Release QA (qa.yml) stays workflow_dispatch because it
+# tests a published image; these jobs test the source before it merges.
+on:
+  pull_request:
+    branches:
+      - main
+
+env:
+  STARTER_REF: v1.0.0
+
+jobs:
+  tests:
+    name: Python tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install docx_builder
+        run: pip install ./docx_builder
+      - name: Run test suites
+        run: |
+          python -m pytest scripts/tests -q
+          python -m pytest docx_builder/tests -q
+
+  shell-lint:
+    name: Shell lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Syntax-check every shell script
+        run: |
+          set -e
+          for f in scripts/*.sh .devcontainer/*.sh; do
+            [ -f "$f" ] || continue
+            bash -n "$f"
+            echo "OK  $f"
+          done
+      - name: shellcheck (advisory)
+        run: |
+          for f in scripts/*.sh; do
+            shellcheck -S warning "$f" || true
+          done
+
+  image-build:
+    name: Image builds (no push)
+    runs-on: ubuntu-latest
+    # The expensive job runs only when its inputs changed.
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Detect image-relevant changes
+        id: changed
+        run: |
+          git fetch --no-tags --depth=1 origin "${{ github.base_ref }}"
+          if git diff --name-only "origin/${{ github.base_ref }}"...HEAD \
+              | grep -qE '^(\.devcontainer/|docx_builder/|scripts/|vale/|presentations/|diagrams/)'; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Checkout dac-starter (pinned ref)
+        if: steps.changed.outputs.run == 'true'
+        uses: actions/checkout@v4
+        with:
+          repository: KhalilGibrotha/dac-starter
+          ref: ${{ env.STARTER_REF }}
+          path: starter-vendor-src
+      - name: Verify stock-hash history and stage the vendor tree
+        if: steps.changed.outputs.run == 'true'
+        run: |
+          python3 scripts/gen-stock-hashes.py --starter starter-vendor-src --verify
+          mkdir -p starter-vendor/files
+          cp -r starter-vendor-src/. starter-vendor/files/
+          rm -rf starter-vendor/files/.git
+          cp starter-vendor-src/stock-hashes.json starter-vendor/
+          python3 scripts/gen-stock-hashes.py --starter starter-vendor-src \
+            --emit-manifest starter-vendor/manifest.json \
+            --starter-version "${STARTER_REF}" \
+            --engine-image "pr-check-only"
+      - name: Build the production image
+        if: steps.changed.outputs.run == 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: .devcontainer/Dockerfile.devspaces
+          push: false
+      - name: Skipped (no image-relevant changes)
+        if: steps.changed.outputs.run != 'true'
+        run: echo "Image inputs unchanged; build skipped."

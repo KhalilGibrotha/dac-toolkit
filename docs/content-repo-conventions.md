@@ -50,12 +50,11 @@ predates `dac/` and isn't the target for new repos.
 - Preferred shared path: `dac/logo.png`, set explicitly via the `logo:` key
   in `dac/docx-build.yml`
 - JPG should also remain supported when PNG is not available
-- Auto-detection without an explicit `logo:` key only checks
-  `assets/logo/logo.png` at the repo root (the legacy path) for
-  `docx-build-all` and `docx_manifest.py`; set the key explicitly under the
-  `dac/` layout rather than relying on auto-detection for either. `build-docs.sh`
-  is the exception: it checks `dac/logo.png` first and falls back to the
-  legacy path automatically.
+- Auto-detection without an explicit `logo:` key checks `dac/logo.png`
+  first and falls back to `assets/logo/logo.png` at the repo root (the
+  legacy path). `docx-build-all`, `docx_manifest.py`, and `build-docs.sh`
+  all follow this order; the latter two also honor `DAC_LOGO` /
+  `DAC_ORG_YAML` environment overrides.
 
 ### Output naming
 

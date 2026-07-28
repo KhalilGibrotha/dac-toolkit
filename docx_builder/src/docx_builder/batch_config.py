@@ -232,12 +232,15 @@ def load_config(path: Optional[str] = None) -> BatchConfig:
             )
         logo: Optional[str] = logo_resolved
     else:
-        # Auto-detect the conventional location (see "Logo" in the module
-        # docstring). Absence is not an error — the cover has a text fallback.
-        candidate = os.path.normpath(
-            os.path.join(config_dir, 'assets', 'logo', 'logo.png')
-        )
-        logo = candidate if os.path.isfile(candidate) else None
+        # Auto-detect the conventional locations: the canonical dac/ layout
+        # first, then the legacy root-level path. Absence is not an error —
+        # the cover has a text fallback.
+        logo = None
+        for parts in (('dac', 'logo.png'), ('assets', 'logo', 'logo.png')):
+            candidate = os.path.normpath(os.path.join(config_dir, *parts))
+            if os.path.isfile(candidate):
+                logo = candidate
+                break
 
     layout = str(raw.get('layout') or DEFAULT_LAYOUT).strip().lower()
     if layout not in LAYOUTS:
