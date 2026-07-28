@@ -156,13 +156,6 @@ on.
 `dac-init`. It requires `dac/.dac-manifest.json`; if that file is missing,
 `dac-update` fails and tells you to run `dac-init` first.
 
-> `dac-update` ships in `scripts/` on this branch but had not yet reached the
-> published `:latest` image as of this writing — the `podman run` commands
-> below will work once a release ships it. Until then, run the script
-> directly from a `dac-toolkit` checkout, pointing `--starter-dir` at a
-> staged starter tree (see `CLAUDE.md`'s Testing Changes section):
-> `python scripts/dac-update --path <target-repo> --starter-dir <vendor-dir>`.
-
 ```bash
 podman run --rm -v "$PWD:/work:Z" -w /work \
   ghcr.io/khalilgibrotha/dac-toolkit:latest dac-update --dry-run
