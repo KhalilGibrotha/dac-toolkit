@@ -1,0 +1,46 @@
+name: PR Checks
+
+# Pre-merge gates. Release QA (qa.yml) stays workflow_dispatch because it
+# tests a published image; these jobs test the source before it merges.
+on:
+  pull_request:
+    branches:
+      - main
+
+env:
+  STARTER_REF: v1.0.0
+
+jobs:
+  tests:
+    name: Python tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install docx_builder and pytest
+        run: pip install pytest ./docx_builder
+      - name: Run test suites
+        run: |
+          python -m pytest scripts/tests -q
+          python -m pytest docx_builder/tests -q
+
+  shell-lint:
+    name: Shell lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Syntax-check every shell script
+        run: |
+          set -e
+          for f in scripts/*.sh .devcontainer/*.sh; do
+            [ -f "$f" ] || continue
+            bash -n "$f"
+            echo "OK  $f"
+          done
+      - name: shellcheck (advisory)
+        run: |
+          for f in scripts/*.sh; do
+            shellcheck -S warning "$f" || true
+          done

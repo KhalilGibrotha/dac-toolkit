@@ -19,7 +19,7 @@ jobs:
       - name: Toolchain present and answering
         run: |
           set -e
-          for cmd in docx-build docx-build-all dac-init gen-stock-hashes.py \
+          for cmd in docx-build docx-build-all dac-init dac-update gen-stock-hashes.py \
                      lint-frontmatter.py lint-mermaid.py lint-encoding.py \
                      vale pandoc pre-commit markdownlint-cli2 mmdc; do
             command -v "$cmd" >/dev/null || { echo "MISSING: $cmd"; exit 1; }
@@ -55,6 +55,36 @@ jobs:
           d=json.load(open('$repo/dac/.dac-manifest.json'))
           assert d['files'], 'manifest recorded no files'
           print('provenance recorded for', len(d['files']), 'files')"
+
+      - name: dac-update behaves (no-op when current, keep+new on customization)
+        run: |
+          set -e
+          repo=$(mktemp -d); mkdir "$repo/.git"
+          dac-init --path "$repo" >/dev/null
+
+          # A freshly initialized repo is byte-identical to stock -> no-op.
+          dac-update --path "$repo" --dry-run | tee /tmp/update-dry.out
+          grep -q "already current" /tmp/update-dry.out
+          dac-update --path "$repo" | tee /tmp/update-run.out
+          grep -qE "^0 installed, 0 replaced" /tmp/update-run.out
+
+          # A locally customized file must be left untouched, with a .new
+          # written beside it for review instead of being overwritten.
+          target="$repo/.markdownlint.json"
+          echo '{"customized": true}' > "$target"
+          dac-update --path "$repo" | tee /tmp/update-custom.out
+          grep -q "keep+new  .markdownlint.json" /tmp/update-custom.out
+          grep -q '"customized": true' "$target"
+          test -f "$target.new"
+
+          python3 -c "
+          import json
+          d=json.load(open('$repo/dac/.dac-manifest.json'))
+          assert 'updated' in d, 'dac-update did not stamp an updated date'
+          assert d.get('installed'), 'installed date lost'
+          assert '.markdownlint.json' not in d.get('files', {}), \
+            'customized file recorded as stock in the manifest'
+          print('manifest ok: installed', d['installed'], 'updated', d['updated'])"
 
       - name: docx-build renders a document end to end
         run: |
