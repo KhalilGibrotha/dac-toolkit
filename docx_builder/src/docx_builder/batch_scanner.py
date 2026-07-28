@@ -12,7 +12,8 @@ Front matter requirements
 
   status must be one of the valid values in VALID_STATUSES.
 
-  Files with no front matter block are skipped silently (READMEs, etc.).
+  Files with no front matter block are skipped (READMEs, etc.). If that
+  leaves nothing to render, the scanner emits a NOTE saying so.
   Files with invalid/missing required fields emit a SKIP warning and are
   excluded from the returned list. The run continues.
 
@@ -101,6 +102,8 @@ def scan(config: BatchConfig) -> tuple[list[ScannedDoc], list[str]]:
     """
     valid_docs: list[ScannedDoc] = []
     warnings: list[str] = []
+    no_front_matter = 0
+    any_front_matter = False
 
     for scan_root in config.scan:
         if not os.path.isdir(scan_root):
@@ -135,8 +138,14 @@ def scan(config: BatchConfig) -> tuple[list[ScannedDoc], list[str]]:
                 # ── Parse front matter ─────────────────────────────────────
                 meta, _ = parse_front_matter(raw)
                 if not meta:
-                    # No front matter — README or freeform note; skip silently
+                    # No front matter. READMEs and freeform notes are expected
+                    # to look like this, so it is not a warning — but count it,
+                    # so a repo whose documents all lack front matter gets told
+                    # why nothing rendered instead of a bare "Scanned: 0".
+                    no_front_matter += 1
                     continue
+
+                any_front_matter = True
 
                 # ── Validate required fields ───────────────────────────────
                 informational = str(meta.get('status', '')).strip() == 'Informational'
@@ -172,5 +181,19 @@ def scan(config: BatchConfig) -> tuple[list[ScannedDoc], list[str]]:
                     version=str(meta['version']).strip(),
                     meta=meta,
                 ))
+
+    # A repo whose Markdown has no front matter at all renders nothing. Without
+    # this note the run reports "Scanned: 0" and looks broken rather than
+    # explaining that the documents need front matter to be picked up.
+    #
+    # any_front_matter gates it separately from valid_docs: a scan can end up
+    # empty because every document was Retired or failed validation, and in
+    # those cases telling the user to add front matter would be wrong.
+    if not valid_docs and no_front_matter and not any_front_matter:
+        warnings.append(
+            f"NOTE  {no_front_matter} Markdown file(s) found, none with YAML front matter.\n"
+            f"      Nothing to render — documents need a front matter block "
+            f"(see dac/templates/ for examples)."
+        )
 
     return valid_docs, warnings
