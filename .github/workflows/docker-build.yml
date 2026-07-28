@@ -26,7 +26,7 @@ env:
   # Pinned ref of the dac-starter repo vendored into the image for
   # dac-init/dac-update. Bump deliberately when starter changes merge —
   # this is the one human step in the stock-config release path.
-  STARTER_REF: v1.0.0
+  STARTER_REF: v1.1.0
 
 jobs:
   build-and-push:
