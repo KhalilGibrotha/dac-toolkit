@@ -51,10 +51,11 @@ predates `dac/` and isn't the target for new repos.
   in `dac/docx-build.yml`
 - JPG should also remain supported when PNG is not available
 - Auto-detection without an explicit `logo:` key only checks
-  `assets/logo/logo.png` at the repo root (the legacy path) across
-  `build-docs.sh`, `docx-build-all`, and `docx_manifest.py`. None of the
-  three currently auto-detects `dac/logo.png`; set the key explicitly under
-  the `dac/` layout rather than relying on auto-detection.
+  `assets/logo/logo.png` at the repo root (the legacy path) for
+  `docx-build-all` and `docx_manifest.py`; set the key explicitly under the
+  `dac/` layout rather than relying on auto-detection for either. `build-docs.sh`
+  is the exception: it checks `dac/logo.png` first and falls back to the
+  legacy path automatically.
 
 ### Output naming
 

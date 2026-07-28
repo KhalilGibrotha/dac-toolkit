@@ -325,12 +325,14 @@ publishable.
 | **Manifest** — `scripts/docx_manifest.py` + `render-manifest.yaml` | Renders exactly the documents listed in the manifest, nothing else. |
 | **Shell pipeline** — `scripts/build-docs.sh` | The original path: pre-renders diagrams, then builds every front-mattered Markdown file under the conventional content folders. No config file required. |
 
-Scan is the only one of the three that understands the `dac/` layout today —
-it finds `dac/docx-build.yml` on its own and anchors relative paths at the
-repo root. The manifest wrapper and the shell pipeline still default to the
-legacy `vars/org.yaml` / `assets/logo/logo.png` paths; under `dac/`, point
-them at `dac/` explicitly (shown below). Migrating those two defaults to
-`dac/` is open engineering work, not yet done.
+Scan is the only one of the three that understands the `dac/` layout for its
+config file — it finds `dac/docx-build.yml` on its own and anchors relative
+paths at the repo root. For org identity and logo, the shell pipeline now
+checks `dac/` first, falling back to the legacy `vars/org.yaml` /
+`assets/logo/logo.png` paths automatically. The manifest wrapper still
+defaults to the legacy paths only; under `dac/`, point it at `dac/`
+explicitly (shown below). Migrating that remaining default is open
+engineering work, not yet done.
 
 ### When to choose which
 
@@ -362,8 +364,8 @@ everything with front matter. It remains fully supported.
 | Incremental rebuild | No — always rebuilds | Yes — render index skips unchanged version/status | No — always rebuilds |
 | Status filtering | No | `skip_retired`, `skip_informational` | No — the list is the filter |
 | Diagram handling | Pre-renders Mermaid sources, then the builder handles inline fences | Builder handles inline fences for any Kroki-supported language | Rewrites any Kroki-supported fence (Mermaid, PlantUML, Graphviz, D2, ...) to PNG via a Kroki service, then calls `docx-build` |
-| Logo | Hardcoded to `assets/logo/logo.png` | `logo:` key (required under `dac/` — see below), `--logo` flag, or auto-detects `assets/logo/logo.png` at the repo root | Per-document `logo:` key, or auto-detects `assets/logo/logo.png` |
-| Org identity | Hardcoded to `vars/org.yaml` | `org:` key, `--org` flag, or front matter | Per-document `org:` key, or auto-detects `vars/org.yaml` |
+| Logo | Auto-detects `dac/logo.png`, falls back to `assets/logo/logo.png` | `logo:` key (required under `dac/` — see below), `--logo` flag, or auto-detects `assets/logo/logo.png` at the repo root | Per-document `logo:` key, or auto-detects `assets/logo/logo.png` |
+| Org identity | Auto-detects `dac/org.yaml`, falls back to `vars/org.yaml` | `org:` key, `--org` flag, or front matter | Per-document `org:` key, or auto-detects `vars/org.yaml` |
 | Environment | Needs `docx-build` on PATH | Needs `docx-build-all` on PATH | Bootstraps its own `.venv-docx-render/` |
 
 ### Scan: build all documents with docx-build-all
@@ -453,12 +455,12 @@ The render wrapper:
 bash scripts/build-docs.sh /path/to/content-repo
 ```
 
-The script looks for `vars/org.yaml` and `assets/logo/logo.png` in the
-content directory and passes them to `docx-build` if found — this is a fixed
-legacy path with no `dac/` awareness and no override flag yet. On a `dac/`-
-layout repo, `build-docs.sh` builds documents without org identity or a logo
-unless you also keep a `vars/org.yaml` around, or build single documents with
-`docx-build` directly (below) and pass `dac/org.yaml` yourself.
+The script looks for `dac/org.yaml` and `dac/logo.png` in the content
+directory first, falling back to the legacy `vars/org.yaml` and
+`assets/logo/logo.png` if the `dac/` files aren't there, and passes whichever
+it finds to `docx-build`. Neither has an override flag yet — to point at a
+different location, build single documents with `docx-build` directly
+(below) and pass `--org`/`--logo` yourself.
 
 ### Build a single document
 
