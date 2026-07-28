@@ -82,6 +82,8 @@ jobs:
           d=json.load(open('$repo/dac/.dac-manifest.json'))
           assert 'updated' in d, 'dac-update did not stamp an updated date'
           assert d.get('installed'), 'installed date lost'
+          assert '.markdownlint.json' not in d.get('files', {}), \
+            'customized file recorded as stock in the manifest'
           print('manifest ok: installed', d['installed'], 'updated', d['updated'])"
 
       - name: docx-build renders a document end to end

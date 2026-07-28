@@ -28,6 +28,7 @@ VALE_V1 = "StylesPath = vale\nMinAlertLevel = warning\n"   # oldest shipped revi
 VALE_V2 = "StylesPath = vale\nMinAlertLevel = suggestion\n"  # current stock revision
 DOCX_BUILD_STOCK = "org: dac/org.yaml.example\n"
 NEWFILE_STOCK = "added: true\n"
+RETIRED_STOCK = "this file was managed once, not anymore\n"  # dropped from current stock
 
 
 def _write(path: Path, content: str, newline: str = "\n") -> None:
@@ -54,6 +55,10 @@ def starter(tmp_path):
         "dac/docx-build.yml": [nhash(files / "dac" / "docx-build.yml")],
         # dac/newfile.yml intentionally absent from history: it is new to the
         # managed set as of this stock revision, never shipped before.
+        # dac/retired.yml: shipped once, then dropped from the managed set.
+        # It stays in files/ history but has no file under files/ -- exactly
+        # what a starter revision that removes a managed file looks like.
+        "dac/retired.yml": [_sha_of(RETIRED_STOCK)],
     }
     atomic_write_json(root / "stock-hashes.json", history)
     atomic_write_json(root / "manifest.json", {
@@ -222,6 +227,84 @@ def test_exit_code_is_zero_even_with_files_needing_review(repo, starter):
     result = _run(repo, starter)
 
     assert result.returncode == 0
+
+
+def test_keep_new_not_recorded_in_manifest(repo, starter):
+    """A keep+new file is customized by definition -- recording it as stock
+    would tell the next dac-update run the opposite of what just happened."""
+    _write(repo / "dac" / "docx-build.yml", "org: something-i-changed.yaml\n")
+
+    result = _run(repo, starter)
+
+    assert result.returncode == 0
+    record = json.loads((repo / "dac" / ".dac-manifest.json").read_text(encoding="utf-8"))
+    assert "dac/docx-build.yml" not in record["files"]
+
+
+def test_keep_new_drops_stale_manifest_entry(repo, starter):
+    """A prior run may have wrongly recorded the file as stock (the bug this
+    fixes). Once the file is customized, that stale entry must go."""
+    record_path = repo / "dac" / ".dac-manifest.json"
+    record = json.loads(record_path.read_text(encoding="utf-8"))
+    record["files"]["dac/docx-build.yml"] = nhash(starter / "files" / "dac" / "docx-build.yml")
+    atomic_write_json(record_path, record)
+    _write(repo / "dac" / "docx-build.yml", "org: something-i-changed.yaml\n")
+
+    result = _run(repo, starter)
+
+    assert result.returncode == 0
+    updated = json.loads(record_path.read_text(encoding="utf-8"))
+    assert "dac/docx-build.yml" not in updated["files"]
+
+
+# ── files that left the managed set ────────────────────────────────────────
+
+def test_obsolete_file_removed_when_unmodified(repo, starter):
+    _write(repo / "dac" / "retired.yml", RETIRED_STOCK)
+
+    result = _run(repo, starter)
+
+    assert result.returncode == 0
+    assert "remove    dac/retired.yml" in result.stdout
+    assert not (repo / "dac" / "retired.yml").exists()
+
+    record = json.loads((repo / "dac" / ".dac-manifest.json").read_text(encoding="utf-8"))
+    assert "dac/retired.yml" not in record["files"]
+
+
+def test_obsolete_file_kept_when_customized(repo, starter):
+    _write(repo / "dac" / "retired.yml", "someone edited this before it was dropped\n")
+
+    result = _run(repo, starter)
+
+    assert result.returncode == 0
+    assert "obsolete  dac/retired.yml" in result.stdout
+    assert (repo / "dac" / "retired.yml").read_bytes() == \
+        b"someone edited this before it was dropped\n"
+
+    record = json.loads((repo / "dac" / ".dac-manifest.json").read_text(encoding="utf-8"))
+    assert "dac/retired.yml" not in record["files"]
+
+
+def test_obsolete_reconciliation_is_dry_run_pure(repo, starter):
+    _write(repo / "dac" / "retired.yml", RETIRED_STOCK)          # would be removed
+    manifest_before = (repo / "dac" / ".dac-manifest.json").read_bytes()
+
+    result = _run(repo, starter, "--dry-run")
+
+    assert result.returncode == 0
+    assert "would remove    dac/retired.yml" in result.stdout
+    assert (repo / "dac" / "retired.yml").read_bytes() == RETIRED_STOCK.encode("utf-8")
+    assert (repo / "dac" / ".dac-manifest.json").read_bytes() == manifest_before
+
+
+def test_absent_obsolete_file_is_silently_skipped(repo, starter):
+    """dac/retired.yml is in stock-hashes.json but was never installed in
+    this repo -- nothing to reconcile, nothing to report."""
+    result = _run(repo, starter)
+
+    assert result.returncode == 0
+    assert "retired.yml" not in result.stdout
 
 
 # ── --help stands on its own ────────────────────────────────────────────────

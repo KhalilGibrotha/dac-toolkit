@@ -14,6 +14,14 @@ A locally customized file is never overwritten. Comparison uses normalized
 content (BOM stripped, CRLF -> LF, one trailing newline) so a Windows
 checkout's line endings alone never register as a customization.
 
+The manifest's files map records only paths confirmed on stock content this
+run (install/replace/skip). A keep+new file is customized by definition, so
+its entry is dropped rather than left claiming stock.
+
+Files that left the managed set since the adopter's last sync (removed or
+renamed upstream) are reconciled too: an unmodified copy is deleted, a
+customized one is left in place and reported as needing a manual decision.
+
 Requires dac/.dac-manifest.json — the record dac-init writes. Run dac-init
 first if this repo has never adopted the managed file set.
 
@@ -75,13 +83,15 @@ def main() -> int:
     engine = manifest.get("engine_image", "unknown")
     print(f"dac-update (starter {version}, engine {engine})\n")
 
-    counts = {"install": 0, "replace": 0, "keep+new": 0, "skip": 0}
-    new_hashes = {}
+    counts = {"install": 0, "replace": 0, "keep+new": 0, "skip": 0,
+              "remove": 0, "obsolete": 0}
+    stock_now = {}    # rel -> hash, confirmed on stock content this run
+    customized = []   # rel, keep+new this run -> drop any stale manifest entry
 
-    for rel in managed_files(files_dir):
+    current = managed_files(files_dir)
+    for rel in current:
         src = files_dir / rel
         new_hash = nhash(src)
-        new_hashes[rel] = new_hash
         dst = repo / rel
         tag = "would " if args.dry_run else ""
 
@@ -90,6 +100,7 @@ def main() -> int:
             print(f"  {tag}install   {rel}")
             if not args.dry_run:
                 atomic_write_bytes(dst, src.read_bytes())
+            stock_now[rel] = new_hash
             continue
 
         cur_hash = nhash(dst)
@@ -99,17 +110,43 @@ def main() -> int:
         if cur_hash == new_hash:
             counts["skip"] += 1
             print(f"  skip      {rel}  (already current)")
+            stock_now[rel] = new_hash
         elif cur_hash in known:
             counts["replace"] += 1
             print(f"  {tag}replace   {rel}  (unmodified stock, older revision "
                   f"-> {version})")
             if not args.dry_run:
                 atomic_write_bytes(dst, src.read_bytes())
+            stock_now[rel] = new_hash
         else:
             counts["keep+new"] += 1
             print(f"  keep+new  {rel}  (locally customized -> {rel}.new)")
             if not args.dry_run:
                 atomic_write_bytes(dst.with_name(dst.name + ".new"), src.read_bytes())
+            customized.append(rel)
+
+    # Files that left the managed set since the adopter last synced: gone
+    # from the stock tree today, but either recorded in the manifest or
+    # present somewhere in stock-hashes.json history. An unmodified copy is
+    # safe to delete; a customized one is left for a human to decide.
+    stale = []  # rel, no longer managed either way -> drop any manifest entry
+    previously_managed = set(record.get("files", {})) | set(history)
+    for rel in sorted(previously_managed - set(current)):
+        dst = repo / rel
+        if not dst.exists():
+            continue
+        cur_hash = nhash(dst)
+        tag = "would " if args.dry_run else ""
+        if cur_hash in set(history.get(rel, [])):
+            counts["remove"] += 1
+            print(f"  {tag}remove    {rel}  (unmodified, no longer managed)")
+            if not args.dry_run:
+                dst.unlink()
+        else:
+            counts["obsolete"] += 1
+            print(f"  obsolete  {rel}  (customized, left the managed set -- "
+                  "review and decide by hand)")
+        stale.append(rel)
 
     if not args.dry_run:
         record.setdefault("dac_manifest_version", 1)
@@ -117,16 +154,27 @@ def main() -> int:
         record["starter_version"] = version
         record["engine_image"] = engine
         record["updated"] = date.today().isoformat()
-        record.setdefault("files", {}).update(new_hashes)
+        files_map = record.setdefault("files", {})
+        files_map.update(stock_now)
+        for rel in customized:
+            files_map.pop(rel, None)
+        for rel in stale:
+            files_map.pop(rel, None)
         atomic_write_json(record_path, record)
 
     verb = "would be " if args.dry_run else ""
     print(f"\n{counts['install']} installed, {counts['replace']} replaced, "
           f"{counts['keep+new']} {verb}left as-is with a .new written for review, "
-          f"{counts['skip']} already current.")
+          f"{counts['skip']} already current, {counts['remove']} {verb}removed "
+          f"(unmodified, no longer managed), {counts['obsolete']} flagged obsolete "
+          "(customized, kept).")
     if counts["keep+new"]:
         print("Review the .new file(s), merge what you want, then delete the .new copy.")
-    if args.dry_run and any(counts[k] for k in ("install", "replace", "keep+new")):
+    if counts["obsolete"]:
+        print("Obsolete customized file(s) were left in place. Decide by hand whether "
+              "to keep or delete them.")
+    if args.dry_run and any(counts[k] for k in
+                             ("install", "replace", "keep+new", "remove")):
         print("Run without --dry-run to apply.")
     return 0
 
