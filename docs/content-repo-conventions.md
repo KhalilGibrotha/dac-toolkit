@@ -12,39 +12,49 @@ low-friction Documentation-as-Code workflow with `dac-toolkit`.
 
 ## Recommended Repository Shape
 
+`dac/` is the machinery folder, holding everything the toolchain needs that
+isn't content, and it is the canonical layout. Get it with `dac-init` rather
+than assembling it by hand; see the toolkit README's Quick Start.
+
 ```text
 content-repo/
 ├── docs/
 ├── decisions/
 ├── patterns/
-├── assets/
-│   └── logo/
-│       └── logo.png
-├── vars/
-│   └── org.yaml
-├── docx-build.yml            # scan-based selection (docx-build-all)
-├── manifests/
-│   └── render-manifest.yaml  # curated selection (docx_manifest.py)
-└── .docx-work/
+├── dac/
+│   ├── org.yaml               # org identity — copy from org.yaml.example
+│   ├── logo.png                # you add this
+│   ├── docx-build.yml          # scan-based selection (docx-build-all)
+│   └── render-manifest.yaml    # curated selection (docx_manifest.py)
+└── exports/
 ```
 
 Not every repository needs all of these folders, but the workflow should prefer
 conventions like these over one-off path wiring.
 
+A root-level `docx-build.yml` with `vars/org.yaml` and `assets/logo/logo.png`
+is the legacy shape. `docx-build-all` still finds a config there, but it
+predates `dac/` and isn't the target for new repos.
+
 ## Intended Defaults
 
 ### Organization metadata
 
-- Preferred shared file: `vars/org.yaml`
+- Preferred shared file: `dac/org.yaml`
 - Per-document override remains valid through front matter
+- `docx-build-all` requires this as an explicit `org:` key (or `--org` flag);
+  there is no auto-detected default for org identity
 
 ### Logo
 
-- Preferred shared path: `assets/logo/logo.png`
+- Preferred shared path: `dac/logo.png`, set explicitly via the `logo:` key
+  in `dac/docx-build.yml`
 - JPG should also remain supported when PNG is not available
-- All render paths (`build-docs.sh`, `docx-build-all`, `docx_manifest.py`)
-  auto-detect this path, so a repo that follows the convention gets its logo
-  on every cover with no configuration
+- Auto-detection without an explicit `logo:` key only checks
+  `assets/logo/logo.png` at the repo root (the legacy path) across
+  `build-docs.sh`, `docx-build-all`, and `docx_manifest.py`. None of the
+  three currently auto-detects `dac/logo.png`; set the key explicitly under
+  the `dac/` layout rather than relying on auto-detection.
 
 ### Output naming
 
@@ -65,7 +75,7 @@ A content repo declares what gets rendered in one of two ways. Both are
 supported long-term — they answer different governance questions, and a repo
 picks the one that matches how it decides what is publishable.
 
-### Scan (`docx-build.yml` + `docx-build-all`)
+### Scan (`dac/docx-build.yml` + `docx-build-all`)
 
 The repo's working set is the publication set. `docx-build.yml` names the
 folders in scope (`scan:`), carve-outs (`exclude:`), and status filters;
@@ -74,7 +84,7 @@ working set and sync `exports/` to a document library as a folder — the
 incremental render index and the `mirror` layout exist for exactly that
 workflow.
 
-### Manifest (`manifests/render-manifest.yaml` + `docx_manifest.py`)
+### Manifest (`dac/render-manifest.yaml` + `docx_manifest.py`)
 
 Publication is curated. The manifest is an explicit, reviewable list of
 documents, and the list itself is the governance artifact: a diff to the
