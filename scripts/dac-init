@@ -7,6 +7,14 @@ missing. Existing files are never touched without --force, and --force saves
 the displaced file as <file>.orig first. Running twice is a no-op. Running it
 at all is optional — nothing in the build or lint path depends on it.
 
+A successful run always writes dac/.dac-manifest.json, even when nothing
+needed installing. A repo created from the starter template already has
+every managed file, so a first run installs 0 files — the manifest still
+needs to exist, or dac-update has nothing to bootstrap from. For files that
+were already present, an entry is recorded only when the file's content
+matches a known stock revision; locally customized files are left out of the
+manifest.
+
     dac-init --dry-run       show what would be installed
     dac-init                 install missing files
     dac-init --force         also replace existing files (saves .orig)
@@ -44,6 +52,7 @@ def main() -> int:
     starter = Path(args.starter_dir)
     files_dir = starter / "files"
     manifest = load_json(starter / "manifest.json")
+    history = load_json(starter / "stock-hashes.json")
 
     if not files_dir.is_dir():
         print(f"dac-init: starter tree not found at {files_dir}\n"
@@ -66,8 +75,22 @@ def main() -> int:
     for rel in to_install:
         tag = "would install" if args.dry_run else "installed    "
         print(f"  {tag}  {rel}")
+
+    # Files already present are never touched, but a repo built from the
+    # starter template has every managed file this way on its first run.
+    # Classify each: matches a known stock revision (current or historical)
+    # -> record it as provenance; anything else is a local customization and
+    # stays out of the manifest.
+    present_stock = {}
     for rel in present:
-        print(f"  present, skip  {rel}")
+        cur_hash = nhash(repo / rel)
+        known = set(history.get(rel, []))
+        known.add(nhash(files_dir / rel))
+        if cur_hash in known:
+            present_stock[rel] = cur_hash
+            print(f"  present, skip  {rel}  (matches stock)")
+        else:
+            print(f"  present, skip  {rel}  (customized, left alone)")
 
     installed_hashes = {}
     if not args.dry_run:
@@ -79,19 +102,20 @@ def main() -> int:
             atomic_write_bytes(dst, src.read_bytes())
             installed_hashes[rel] = nhash(src)
 
-        if installed_hashes:
-            record = load_json(repo / REPO_MANIFEST)
-            record.setdefault("dac_manifest_version", 1)
-            record["starter_version"] = version
-            record["engine_image"] = engine
-            record["installed"] = date.today().isoformat()
-            record.setdefault("files", {}).update(installed_hashes)
-            atomic_write_json(repo / REPO_MANIFEST, record)
+        record = load_json(repo / REPO_MANIFEST)
+        record.setdefault("dac_manifest_version", 1)
+        record["starter_version"] = version
+        record["engine_image"] = engine
+        record.setdefault("installed", date.today().isoformat())
+        record.setdefault("files", {}).update(installed_hashes)
+        record["files"].update(present_stock)
+        atomic_write_json(repo / REPO_MANIFEST, record)
 
-    n, p = len(to_install), len(present)
+    n, p, m = len(to_install), len(present), len(present_stock)
     verb = "to install" if args.dry_run else "installed"
-    print(f"\n{n} {verb}, {p} already present."
-          + (" Run without --dry-run to apply." if args.dry_run and n else ""))
+    print(f"\n{n} {verb}, {p} already present ({m} match stock)"
+          + ("; provenance written." if not args.dry_run
+             else "." + (" Run without --dry-run to apply." if n else "")))
     if n and not (repo / "dac/org.yaml").exists():
         print("Next step: copy dac/org.yaml.example to dac/org.yaml and fill it in.")
     print("tip: run on a clean git tree, then `git diff` to review and "
