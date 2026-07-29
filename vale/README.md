@@ -20,16 +20,52 @@ Markdown-based documentation repositories.
 
 ## Usage
 
-Copy the `DocOps/` folder into your content repo's `.vale/styles/` directory,
-then reference it in `.vale.ini`:
+Adopted repositories get this for free — `dac-init` installs `DocOps/` at
+`dac/vale/styles/DocOps/` along with a working `.vale.ini`. The rest of this
+section is for anyone wiring it up by hand or extending it.
+
+The canonical layout puts the styles path under `dac/`:
 
 ```ini
-StylesPath = .vale/styles
-MinAlertLevel = suggestion
+StylesPath = dac/vale/styles
+MinAlertLevel = warning
+Vocab = <YourVocabName>
+Packages = RedHat, write-good
 
 [*.md]
 BasedOnStyles = DocOps, RedHat, write-good
 ```
+
+Every style in `BasedOnStyles` must be present in the styles path. `DocOps`
+is committed; the rest are named in `Packages` and fetched by `vale sync`.
+The starter ships a fuller version of this file, including the `ai-tells`
+package — take that as the working reference rather than this minimum.
+
+### Where the pieces live
+
+```text
+dac/vale/styles/
+|-- DocOps/                        committed - the house style, this package
+|-- config/
+|   `-- vocabularies/
+|       `-- <YourVocabName>/       committed - your terms
+|           |-- accept.txt
+|           `-- reject.txt
+|-- RedHat/                        gitignored - vale sync regenerates
+|-- write-good/                    gitignored - vale sync regenerates
+`-- ai-tells/                      gitignored - vale sync regenerates
+```
+
+**Vocabularies belong at `<StylesPath>/config/vocabularies/<Name>/`**, where
+`<Name>` is the folder name that `Vocab =` refers to in `.vale.ini`. Vale 2
+reads them from `<StylesPath>/Vocab/<Name>/`. That path is dead in Vale 3:
+entries placed there are ignored with no error, and a repo carrying both
+locations drifts apart silently. Migrating an older repo means moving the
+folder and deleting the old one.
+
+Packages named in `Packages =` are downloaded by `vale sync` into the styles
+path. Gitignore those and commit only what you author: the house style and
+your vocabularies.
 
 ## Customizing for Your Environment
 

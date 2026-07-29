@@ -3,7 +3,9 @@
 #
 # During docker build, vale sync downloads RedHat + write-good packages into
 # /opt/vale-styles.  At container start this script copies them into the
-# workspace's .vale/styles/ directory so Vale works fully offline.
+# workspace's styles directory so Vale works fully offline. The destination
+# is read from the repo's own .vale.ini StylesPath, so this works for the
+# canonical dac/vale/styles layout and for legacy .vale/styles alike.
 #
 # Usage:
 #   bash vale-bootstrap.sh [CONTENT_DIR]
@@ -25,10 +27,17 @@ if [[ ! -d "$PREBAKED" ]]; then
     exit 0
 fi
 
-mkdir -p "$CONTENT_DIR/.vale/styles"
+# Resolve StylesPath from .vale.ini rather than assuming a layout. Copying to
+# the wrong path leaves BasedOnStyles unresolvable in an offline workspace,
+# which surfaces as a confusing "style not found" rather than a missing file.
+STYLES_REL="$(sed -n 's/^[[:space:]]*StylesPath[[:space:]]*=[[:space:]]*//p'     "$CONTENT_DIR/.vale.ini" | head -n 1 | tr -d '')"
+STYLES_REL="${STYLES_REL:-.vale/styles}"
+STYLES_DIR="$CONTENT_DIR/$STYLES_REL"
+
+mkdir -p "$STYLES_DIR"
 if [ -n "$(ls -A "$PREBAKED")" ]; then
-    cp -rn "$PREBAKED"/* "$CONTENT_DIR/.vale/styles/"
-    echo "vale-bootstrap: pre-baked styles copied to $CONTENT_DIR/.vale/styles/"
+    cp -rn "$PREBAKED"/* "$STYLES_DIR/"
+    echo "vale-bootstrap: pre-baked styles copied to $STYLES_DIR/"
 else
     echo "vale-bootstrap: no styles found in $PREBAKED — skipping"
 fi
