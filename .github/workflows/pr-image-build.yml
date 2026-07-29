@@ -18,7 +18,7 @@ on:
       - ".github/workflows/pr-image-build.yml"
 
 env:
-  STARTER_REF: v1.1.0
+  STARTER_REF: v1.1.1
 
 jobs:
   image-build:
