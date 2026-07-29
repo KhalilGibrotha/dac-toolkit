@@ -105,9 +105,11 @@ commands:
         if [ -d /opt/vale-styles ]; then
           for repo in /projects/*/; do
             if [ -f "$repo/.vale.ini" ]; then
-              mkdir -p "$repo/.vale/styles"
-              cp -rn /opt/vale-styles/* "$repo/.vale/styles/" 2>/dev/null || true
-              echo "=== Vale styles copied to $repo ==="
+              sp=$(grep -m1 StylesPath "$repo/.vale.ini" | cut -d= -f2 | tr -d " ")
+              sp=${sp:-.vale/styles}
+              mkdir -p "$repo/$sp"
+              cp -rn /opt/vale-styles/* "$repo/$sp/" 2>/dev/null || true
+              echo "=== Vale styles copied to $repo$sp ==="
             fi
           done
         fi

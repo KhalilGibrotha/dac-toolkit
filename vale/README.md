@@ -28,12 +28,18 @@ The canonical layout puts the styles path under `dac/`:
 
 ```ini
 StylesPath = dac/vale/styles
-MinAlertLevel = suggestion
+MinAlertLevel = warning
 Vocab = <YourVocabName>
+Packages = RedHat, write-good
 
 [*.md]
 BasedOnStyles = DocOps, RedHat, write-good
 ```
+
+Every style in `BasedOnStyles` must be present in the styles path. `DocOps`
+is committed; the rest are named in `Packages` and fetched by `vale sync`.
+The starter ships a fuller version of this file, including the `ai-tells`
+package — take that as the working reference rather than this minimum.
 
 ### Where the pieces live
 
@@ -52,7 +58,7 @@ dac/vale/styles/
 
 **Vocabularies belong at `<StylesPath>/config/vocabularies/<Name>/`**, where
 `<Name>` is the folder name that `Vocab =` refers to in `.vale.ini`. Vale 2
-read them from `<StylesPath>/Vocab/<Name>/`. That path is dead in Vale 3:
+reads them from `<StylesPath>/Vocab/<Name>/`. That path is dead in Vale 3:
 entries placed there are ignored with no error, and a repo carrying both
 locations drifts apart silently. Migrating an older repo means moving the
 folder and deleting the old one.
