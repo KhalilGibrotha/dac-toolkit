@@ -16,6 +16,34 @@ content repos consume via devfile and CI. Content repos never clone this repo.
   repo's root or in its `dac/` folder; a `dac/` config anchors relative paths
   at the repo root.
 
+## Two Different Devcontainers
+
+`.devcontainer/` here is for **developing the engine**: it builds
+`.devcontainer/Dockerfile` through compose, mounts this repo at `/workspace`,
+runs `network_mode: none`, and editable-installs docx_builder.
+
+Content repos carry a different one that **consumes the published image** —
+no build, no compose, just `image:` plus the extension list. Do not copy this
+repo's devcontainer into a content repo; they solve opposite problems.
+
+`.devcontainer/devcontainer.json` is not in `MANAGED_ROOT_FILES`, so `dac-init`
+does not install the content-repo devcontainer into an existing repository. It
+arrives only by templating from dac-starter. Adding it to the managed set is a
+deliberate change: it puts the file under `dac-update` control and requires a
+`stock-hashes.json` append.
+
+**Known defect — `scripts/vale-bootstrap.sh` has CRLF line endings.** The
+`StylesPath` extraction fails under the container's bash, so it silently falls
+back to the legacy `.vale/styles` path and reports success, leaving styles
+where Vale will not look. `/opt/vale-styles` also bakes only RedHat and
+write-good, not the `ai-tells` package content repos declare. Until both are
+fixed, content repos sync Vale styles themselves rather than calling this
+script.
+
+Shell scripts in this repo run on Linux. Author and edit them in the Linux lane
+— CRLF endings and lost exec bits are invisible on Windows and fatal in the
+image.
+
 ## Key Constraints
 
 1. **Public repo.** No organization identifiers anywhere — files, commit
