@@ -3,6 +3,27 @@
 The engine of the docs-as-code system: a self-contained container image that
 content repos consume via devfile and CI. Content repos never clone this repo.
 
+## Where Commands Run
+
+**Container lane, and this repo builds the container.** Tests, renders, and
+`dac-init` smoke runs go inside the image, not on the Windows host. Build and
+run from **PowerShell** — Git Bash rewrites container mount paths and fails
+with a misleading "workdir does not exist".
+
+Scripts under `scripts/` execute in a Linux image. Author and test them there:
+a CRLF ending or a lost exec bit is invisible on Windows and fatal in the
+image, and `.gitattributes` cannot rescue a file git already classified as
+binary (check `git ls-files --eol`, treat `i/-text` as the real signal).
+
+**This is a PUBLIC repo.** No organization identifiers in files, commit
+messages, or PR text. A session rooted in the private `architecture-docs` can
+edit here freely, because the permission scope spans all of `E:\dev` — so that
+constraint must be held deliberately rather than inferred from surroundings.
+
+**Sibling repos** (full map in the global instructions): `E:\dev\dac-starter`
+is the vendored starter, also public; `E:\dev\architecture-docs` is the private
+production consumer of this image.
+
 ## Architecture
 
 - **Image** (`ghcr.io/khalilgibrotha/dac-toolkit`): docx_builder installed as
