@@ -48,17 +48,61 @@ Dev Spaces uses `devfile.yaml` (at the repo root), not `devcontainer.json`.
 
 **Air-gapped / pre-built image (recommended for production):**
 
-1. Build the Dev Spaces-specific image and push to your internal registry:
+These commands are **bash** — run them in WSL, Git Bash, or a Linux shell, not
+PowerShell. (Podman itself is the exception: on Windows run `podman build` from
+PowerShell, since Git Bash rewrites container paths.)
+
+1. Stage the pinned starter vendor tree. CI does this before every build, so a
+   bare `podman build` fails at `COPY starter-vendor`.
+
+   Read the ref from the workflow rather than typing a version — this pin moves
+   whenever a new starter ships, and a hard-coded tag here silently vendors the
+   wrong one:
 
    ```bash
-   podman build -f .devcontainer/Dockerfile.devspaces \
-     -t <your-registry>/dac-toolkit:latest .
-   podman push <your-registry>/dac-toolkit:latest
+   STARTER_REF=$(sed -n 's/^[[:space:]]*STARTER_REF:[[:space:]]*//p' \
+     .github/workflows/docker-build.yml | head -n 1 | tr -d '"'"'"'"')
+   echo "vendoring starter $STARTER_REF"
+
+   git clone --depth 1 --branch "$STARTER_REF" \
+     https://github.com/KhalilGibrotha/dac-starter starter-vendor-src
+   python3 scripts/gen-stock-hashes.py --starter starter-vendor-src --verify
+   rm -rf starter-vendor
+   mkdir -p starter-vendor/files
+   cp -r starter-vendor-src/. starter-vendor/files/
+   rm -rf starter-vendor/files/.git
+   cp starter-vendor-src/stock-hashes.json starter-vendor/
+   python3 scripts/gen-stock-hashes.py --starter starter-vendor-src \
+     --emit-manifest starter-vendor/manifest.json \
+     --starter-version "$STARTER_REF" --engine-image dac-toolkit:local
    ```
 
-2. Edit `devfile.yaml` — replace the `image:` line in the `tools` component
-3. Remove or comment out the `install-tools` postStart event (tools are already in the image)
-4. Add your content repos to the `projects:` block in `devfile.yaml`
+2. Build from a `git archive` staging directory, never the worktree. A worktree
+   COPY bakes checkout artifacts into the image: a CRLF shebang on `dac-init`
+   shipped exactly this way and broke it inside the image, while CI, building
+   from a Linux checkout, stayed green.
+
+   The staging directory is recreated rather than reused. `tar -x` only
+   overwrites paths present in the new archive, so a file deleted since the
+   last build would otherwise survive in `/tmp/ctx` and be baked in again:
+
+   ```bash
+   rm -rf /tmp/ctx && mkdir -p /tmp/ctx
+   git archive HEAD | tar -x -C /tmp/ctx
+   cp -r starter-vendor /tmp/ctx/
+   podman build -f .devcontainer/Dockerfile.devspaces \
+     -t <your-registry>/dac-toolkit:latest /tmp/ctx
+   ```
+
+3. Validate before pushing: run the Release QA steps
+   (`.github/workflows/qa.yml`) against the built tag — toolchain presence
+   including quarto and render-decks.sh, a deck render, the starter-tree
+   verify, dac-init idempotence, and a docx render.
+
+4. Push, then edit `devfile.yaml` — replace the `image:` line in the `tools`
+   component
+5. Remove or comment out the `install-tools` postStart event (tools are already in the image)
+6. Add your content repos to the `projects:` block in `devfile.yaml`
 
 ---
 
