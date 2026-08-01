@@ -4,3 +4,10 @@
 *.py text eol=lf
 Makefile text eol=lf
 Dockerfile* text eol=lf
+
+# The extensionless CLI entry points are Python scripts too. Without this a
+# Windows checkout gives them CRLF, and an image built from that worktree
+# ships a broken shebang ("env: 'python3\r'") while CI, building from a
+# Linux checkout, stays green. Found by building locally and running QA.
+scripts/dac-init text eol=lf
+scripts/dac-update text eol=lf
