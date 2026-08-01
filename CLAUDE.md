@@ -24,6 +24,12 @@ constraint must be held deliberately rather than inferred from surroundings.
 is the vendored starter, also public; `E:\dev\architecture-docs` is the private
 production consumer of this image.
 
+**Root cross-repo sessions at `E:\dev\architecture-docs`.** The three release as
+a set — starter tag, `STARTER_REF` bump here, image rebuild, consumer picks it
+up — and that order only reads correctly from the consumer end. A session
+started here can reach the siblings (`.claude/settings.local.json` lists them),
+so this is about where the work is driven from, not what is reachable.
+
 ## Architecture
 
 - **Image** (`ghcr.io/khalilgibrotha/dac-toolkit`): docx_builder installed as
