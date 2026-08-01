@@ -21,13 +21,23 @@ jobs:
           set -e
           for cmd in docx-build docx-build-all dac-init dac-update gen-stock-hashes.py \
                      lint-frontmatter.py lint-mermaid.py lint-encoding.py \
-                     vale pandoc pre-commit markdownlint-cli2 mmdc; do
+                     vale pandoc pre-commit markdownlint-cli2 mmdc \
+                     quarto render-decks.sh; do
             command -v "$cmd" >/dev/null || { echo "MISSING: $cmd"; exit 1; }
           done
           pandoc -v | head -1
           vale -v
           pre-commit --version
           python3 -c "import docx_builder; print('docx_builder import OK')"
+
+      - name: Deck toolchain renders a PowerPoint end to end
+        run: |
+          set -e
+          quarto check 2>&1 | tail -3
+          work=$(mktemp -d); cd "$work"
+          printf -- '---\ntitle: "QA Deck"\nformat: pptx\n---\n\n## One slide\n\n- renders\n' > deck.qmd
+          quarto render deck.qmd --to pptx
+          python3 -c "import zipfile; z=zipfile.ZipFile('deck.pptx'); assert z.testzip() is None; assert 'ppt/presentation.xml' in z.namelist(); print('deck.pptx intact')"
 
       - name: Baked starter tree is intact and hash-history-complete
         run: |
