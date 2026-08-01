@@ -48,30 +48,47 @@ Dev Spaces uses `devfile.yaml` (at the repo root), not `devcontainer.json`.
 
 **Air-gapped / pre-built image (recommended for production):**
 
+These commands are **bash** — run them in WSL, Git Bash, or a Linux shell, not
+PowerShell. (Podman itself is the exception: on Windows run `podman build` from
+PowerShell, since Git Bash rewrites container paths.)
+
 1. Stage the pinned starter vendor tree. CI does this before every build, so a
-   bare `podman build` fails at `COPY starter-vendor`. Use the `STARTER_REF`
-   pinned in `.github/workflows/docker-build.yml`:
+   bare `podman build` fails at `COPY starter-vendor`.
+
+   Read the ref from the workflow rather than typing a version — this pin moves
+   whenever a new starter ships, and a hard-coded tag here silently vendors the
+   wrong one:
 
    ```bash
-   git clone --depth 1 --branch v1.1.1 \
+   STARTER_REF=$(sed -n 's/^[[:space:]]*STARTER_REF:[[:space:]]*//p' \
+     .github/workflows/docker-build.yml | head -n 1 | tr -d '"'"'"'"')
+   echo "vendoring starter $STARTER_REF"
+
+   git clone --depth 1 --branch "$STARTER_REF" \
      https://github.com/KhalilGibrotha/dac-starter starter-vendor-src
    python3 scripts/gen-stock-hashes.py --starter starter-vendor-src --verify
+   rm -rf starter-vendor
    mkdir -p starter-vendor/files
    cp -r starter-vendor-src/. starter-vendor/files/
    rm -rf starter-vendor/files/.git
    cp starter-vendor-src/stock-hashes.json starter-vendor/
    python3 scripts/gen-stock-hashes.py --starter starter-vendor-src \
      --emit-manifest starter-vendor/manifest.json \
-     --starter-version v1.1.1 --engine-image dac-toolkit:local
+     --starter-version "$STARTER_REF" --engine-image dac-toolkit:local
    ```
 
-2. Build — on Windows, from a `git archive` staging directory, never the
-   worktree. A worktree COPY bakes checkout artifacts into the image: a CRLF
-   shebang on `dac-init` shipped exactly this way and broke it inside the
-   image, while CI, building from a Linux checkout, stayed green.
+2. Build from a `git archive` staging directory, never the worktree. A worktree
+   COPY bakes checkout artifacts into the image: a CRLF shebang on `dac-init`
+   shipped exactly this way and broke it inside the image, while CI, building
+   from a Linux checkout, stayed green.
+
+   The staging directory is recreated rather than reused. `tar -x` only
+   overwrites paths present in the new archive, so a file deleted since the
+   last build would otherwise survive in `/tmp/ctx` and be baked in again:
 
    ```bash
-   mkdir -p /tmp/ctx && git archive HEAD | tar -x -C /tmp/ctx
+   rm -rf /tmp/ctx && mkdir -p /tmp/ctx
+   git archive HEAD | tar -x -C /tmp/ctx
    cp -r starter-vendor /tmp/ctx/
    podman build -f .devcontainer/Dockerfile.devspaces \
      -t <your-registry>/dac-toolkit:latest /tmp/ctx

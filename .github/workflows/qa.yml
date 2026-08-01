@@ -32,12 +32,20 @@ jobs:
 
       - name: Deck toolchain renders a PowerPoint end to end
         run: |
-          set -e
+          # pipefail matters here: without it `quarto check | tail` reports
+          # tail's exit status, which always succeeds, so a broken Quarto would
+          # sail through this gate unnoticed.
+          set -eo pipefail
           quarto check 2>&1 | tail -3
-          work=$(mktemp -d); cd "$work"
-          printf -- '---\ntitle: "QA Deck"\nformat: pptx\n---\n\n## One slide\n\n- renders\n' > deck.qmd
-          quarto render deck.qmd --to pptx
-          python3 -c "import zipfile; z=zipfile.ZipFile('deck.pptx'); assert z.testzip() is None; assert 'ppt/presentation.xml' in z.namelist(); print('deck.pptx intact')"
+
+          # Exercise the SHIPPED entry point rather than calling quarto by
+          # hand. Rendering a throwaway deck proved only that quarto works --
+          # render-decks.sh itself could be broken and this gate stayed green,
+          # which is the gap this job exists to close. --smoke renders the
+          # bundled example through the real script and asserts a figure image
+          # embedded, so a broken wrapper, a bad bundled path, or a broken
+          # Jupyter/matplotlib integration all fail here.
+          render-decks.sh --smoke
 
       - name: Baked starter tree is intact and hash-history-complete
         run: |
