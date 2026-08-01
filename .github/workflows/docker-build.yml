@@ -40,7 +40,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       # Hard gate: a version tag only publishes if Release QA passed on this
       # exact commit. Keeps "QA before tagging" mechanical, not procedural.
@@ -58,7 +58,7 @@ jobs:
           fi
 
       - name: Checkout dac-starter (pinned ref)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: KhalilGibrotha/dac-starter
           ref: ${{ env.STARTER_REF }}
@@ -80,7 +80,7 @@ jobs:
             --engine-image "${IMAGE}:${GITHUB_SHA}"
 
       - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -90,7 +90,7 @@ jobs:
       # image identifies itself instead of inheriting the UBI base's labels.
       - name: Derive tags and OCI labels
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ${{ env.IMAGE }}
           tags: |
@@ -103,12 +103,12 @@ jobs:
             org.opencontainers.image.licenses=MIT
 
       - name: Set up Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       # Build once into the local daemon so the scan gates publication rather
       # than trailing it. The push below reuses this layer cache.
       - name: Build for scanning
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: .devcontainer/Dockerfile.devspaces
@@ -151,7 +151,7 @@ jobs:
 
       - name: Push image
         id: push
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: .devcontainer/Dockerfile.devspaces
