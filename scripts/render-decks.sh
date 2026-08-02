@@ -110,8 +110,24 @@ render_dir() { # render every non-underscore deck in a presentations dir
 
 smoke() { # render the toolkit's bundled example and confirm a figure embedded
     echo "=== smoke test: rendering bundled example deck ==="
-    ( cd "$TOOLKIT_ROOT/presentations" && "$QUARTO" render example_deck.qmd --to pptx )
-    local out="$TOOLKIT_ROOT/presentations/exports/example_deck.pptx"
+
+    # Render a writable COPY, never in place. In the published image the bundled
+    # deck lives under /opt/dac-toolkit, owned by root, while the container runs
+    # as uid 1001 -- so an in-place render dies with PermissionDenied writing the
+    # intermediate .quarto_ipynb before Quarto reaches the renderer at all. The
+    # shipped self-test was therefore unusable for the shipped user, which the
+    # old Release QA step hid by rendering its own throwaway deck in /tmp.
+    #
+    # The whole presentations tree is copied because the deck resolves
+    # _quarto.yml, templates/ (reference-doc), assets/ (matplotlib palette) and
+    # themes/ relative to its own directory.
+    local work
+    work="$(mktemp -d)"
+    trap 'rm -rf "$work"' RETURN
+    cp -r "$TOOLKIT_ROOT/presentations/." "$work/"
+
+    ( cd "$work" && "$QUARTO" render example_deck.qmd --to pptx )
+    local out="$work/exports/example_deck.pptx"
     [ -f "$out" ] || { echo "SMOKE FAIL: pptx not produced" >&2; exit 1; }
     if python - "$out" <<'PYEOF'
 import sys, zipfile
