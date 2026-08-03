@@ -5,23 +5,27 @@ dac-toolkit is a public, MIT-licensed documentation toolchain. Contributions are
 ## Branch Model
 
 ```text
-main        — stable, tagged releases only
-develop     — integration branch; all PRs target here
-feature/*   — short-lived feature branches from develop
-fix/*       — short-lived fix branches from develop
+main        — the trunk; PRs target here, and merging is what releases
+feat/*      — short-lived feature branches from main, deleted on merge
+fix/*       — short-lived fix branches
+chore/*     — dependency bumps, config, release plumbing
+docs/*      — documentation-only changes
 ```
 
-Do not push directly to `main`. All changes flow through `develop` via pull request.
+Do not push directly to `main`; every change arrives by pull request. There
+is no `develop` branch — the release gate is the `v*` tag plus a green
+Release QA run, so a second long-lived branch would only be somewhere for
+work to go stale.
 
-> **Note:** The `devfile.yaml` in this repo targets `revision: main` for workspace users who want a stable environment. As a contributor, clone the repo normally and branch from `develop` as described in Getting Started below.
+> **Note:** `devfile.yaml` targets `revision: main`, which is also the branch
+> you contribute against.
 
 ## Getting Started
 
 ```bash
 git clone https://github.com/KhalilGibrotha/dac-toolkit.git
 cd dac-toolkit
-git checkout develop
-git checkout -b feature/your-feature-name
+git checkout -b feat/your-feature-name
 ```
 
 ## Making Changes
@@ -42,12 +46,13 @@ Update devfile to use UDI base image
 ```
 
 Avoid:
+
 - `Fixed...`, `Fixes...`, `Adding...`
 - Vague messages like `updates` or `misc fixes`
 
 ## Pull Requests
 
-1. Target `develop`, not `main`.
+1. Target `main`.
 2. Include a short description of what changed and why.
 3. Link any related issues in the PR body.
 4. Automated review agents (Gemini, Copilot, Codex) will comment — address legitimate findings before merge.
@@ -55,6 +60,7 @@ Avoid:
 ## Reporting Bugs
 
 Open a GitHub issue with:
+
 - A description of the problem
 - Steps to reproduce
 - Expected vs actual behavior
@@ -66,7 +72,9 @@ Open an issue before starting significant work. This avoids duplicated effort an
 
 ## Release Process
 
-Releases are tagged on `main` from `develop` after sufficient stability. Tag format: `vMAJOR.MINOR.PATCH`. The Docker image tag aligns with the release tag.
+Releases are tagged on `main`. Tag format: `vMAJOR.MINOR.PATCH`. The Docker
+image tag aligns with the release tag, and a tag build only publishes if a
+Release QA run passed on that exact commit.
 
 ## Code of Conduct
 

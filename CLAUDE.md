@@ -76,7 +76,11 @@ image.
 1. **Public repo.** No organization identifiers anywhere — files, commit
    messages, PR and issue text. Org identity enters at build time in content
    repos via `--org`.
-2. **Branch flow `develop → main`.** The image builds only on push to `main`
+2. **Trunk-based on `main`.** Short-lived `feat/`, `fix/`, `chore/`, or
+   `docs/` branches open a PR against `main` and are deleted on merge. There
+   is no `develop` branch — the release gate is the `v*` tag plus a green
+   Release QA run, not an integration branch, so a second long-lived branch
+   only adds a place for work to go stale. The image builds on push to `main`
    (path-filtered) and on `v*` tags.
 
 ## Critical Fragile Areas
@@ -89,10 +93,10 @@ image.
 
 ## Release Process
 
-1. Merge `develop → main`. The docker-build workflow runs: starter vendor +
-   hash-history gate → Trivy gate (HIGH/CRITICAL, ignore-unfixed) → push
-   `:latest` + `:sha` → provenance attestation + CycloneDX SBOM + cosign
-   keyless signing.
+1. Merge the feature branch into `main`. The docker-build workflow runs:
+   starter vendor + hash-history gate → Trivy gate (HIGH/CRITICAL,
+   ignore-unfixed) → push `:latest` + `:sha` → provenance attestation +
+   CycloneDX SBOM + cosign keyless signing.
 2. Dispatch the **Release QA** workflow (runs inside the published image:
    tool presence, starter-tree integrity, dac-init contract, end-to-end
    render). Green is the precondition for tagging — the tag build verifies
