@@ -105,14 +105,53 @@ def parse_front_matter(raw_text: str) -> tuple[dict, str]:
     return {}, text
 
 
+# Inline markdown that must not survive into a TOC entry. The body renders
+# these as formatting, so leaving the syntax here breaks the invariant
+# extract_headings documents - that its text matches the document body.
+# Link destinations allow one level of balanced parentheses, matching the
+# table-cell tokenizer in markdown_parser.
+_INLINE_SYNTAX_RE = re.compile(
+    r'!?\[(?P<label>[^\]\n]*)\]\((?:[^()\s]|\([^()\s]*\))*\)'  # [text](url)
+    r'|`(?P<code>[^`\n]+)`'                                     # `code`
+    r'|\*\*\*(?P<bi>[^*\n]+)\*\*\*'                             # ***both***
+    r'|\*\*(?P<b>[^*\n]+)\*\*'                                  # **bold**
+    r'|__(?P<b2>[^_\n]+)__'                                     # __bold__
+    r'|\*(?P<i>[^*\n]+)\*'                                      # *italic*
+    r'|(?<!\w)_(?!_)(?P<i2>[^_\n]+)_(?!_)(?!\w)'                # _italic_
+)
+
+
+def strip_inline_markdown(text: str) -> str:
+    """Reduce inline markdown to the words a reader sees.
+
+    '[the guide](https://example.com)' becomes 'the guide'. Used for TOC
+    entries, which are plain text: without this a heading containing a link
+    put raw '[label](url)' into the table of contents.
+    """
+    def unwrap(m):
+        for name in ("label", "code", "bi", "b", "b2", "i", "i2"):
+            if m.group(name) is not None:
+                return m.group(name)
+        return m.group(0)
+
+    previous = None
+    result = text
+    # Repeat so nested constructs ('**[bold link](url)**') fully unwrap.
+    # Bounded by the string shrinking on every pass.
+    while result != previous:
+        previous = result
+        result = _INLINE_SYNTAX_RE.sub(unwrap, result)
+    return result
+
+
 def extract_headings(body_md: str) -> list[tuple]:
     """
     Pre-scan markdown source for headings (h1-h3) to populate the static
     TOC fallback entries before the document is fully rendered.
 
     Returns a list of (level: int, numbered_text: str, page: None) tuples.
-    Heading text is pre-numbered using HeadingNumberer so it matches what
-    HtmlToDocx will write into the document body.
+    Heading text is pre-numbered using HeadingNumberer and stripped of inline
+    markdown so it matches what HtmlToDocx will write into the document body.
     page is always None here; Word fills in actual page numbers on open.
 
     Args:
@@ -120,4 +159,7 @@ def extract_headings(body_md: str) -> list[tuple]:
     """
     heading_scan = re.findall(r'^(#{1,3})\s+(.+)$', body_md, re.MULTILINE)
     numberer = HeadingNumberer()
-    return [(len(h), numberer.format(len(h), t.strip()), None) for h, t in heading_scan]
+    return [
+        (len(h), numberer.format(len(h), strip_inline_markdown(t.strip())), None)
+        for h, t in heading_scan
+    ]
