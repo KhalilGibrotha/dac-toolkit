@@ -6,7 +6,7 @@ hyperlink relationships. The second matters because link styling alone
 (blue + underline) looks identical in Word whether or not the text is
 clickable - which is how the builder shipped styled-but-inert links.
 """
-import re
+import xml.etree.ElementTree as ET
 import zipfile
 
 import pytest
@@ -69,17 +69,23 @@ def _hyperlink_targets(docx_path):
     """External hyperlink relationship targets in a .docx.
 
     Word stores link targets in document.xml.rels, not in the body XML, so
-    this reads the relationships directly rather than trusting run styling.
+    this reads the relationships directly rather than trusting run styling -
+    styling looks identical whether or not the text is clickable.
+
+    Parsed as XML rather than regexed as bytes so that escaped characters in
+    an attribute value come back decoded: a target with a query string is
+    stored as '&amp;' and a regex would report it that way, failing a
+    comparison against the URL the caller actually wrote.
     """
     targets = []
     with zipfile.ZipFile(docx_path) as z:
         for name in z.namelist():
             if not name.endswith(".rels"):
                 continue
-            for m in re.finditer(
-                rb'Type="[^"]*hyperlink"[^>]*Target="([^"]+)"', z.read(name)
-            ):
-                targets.append(m.group(1).decode())
+            root = ET.fromstring(z.read(name))
+            for rel in root:
+                if rel.get("Type", "").endswith("/hyperlink"):
+                    targets.append(rel.get("Target", ""))
     return targets
 
 
@@ -147,3 +153,115 @@ class TestRenderedDocx:
         assert "Vendor KCS 12345" in joined, "link label missing from the table"
         assert "](" not in joined, f"raw markdown leaked into a cell: {joined}"
         assert "Sibling doc" in joined, "relative link label should still render"
+
+    def test_heading_containing_a_link_keeps_its_text(self, tmp_path):
+        """Runs moved into w:hyperlink vanish from paragraph.runs.
+
+        The heading handler rebuilds its text from the paragraph's runs, so
+        gathering only direct children dropped the link words out of the
+        heading - and blanked a heading that was entirely a link.
+        """
+        from docx import Document
+        from docx_builder.builder import build_document
+
+        md = tmp_path / "h.md"
+        md.write_text(
+            "---\n"
+            "title: Heading Link\n"
+            "doc_type: reference\n"
+            "status: Draft\n"
+            "version: '0.1'\n"
+            "author: Test\n"
+            "date: 2026-08-03\n"
+            "---\n\n"
+            "# Read [the guide](https://example.com) carefully\n\n"
+            "Body.\n\n"
+            "## [Entirely a link](https://example.com/two)\n\n"
+            "More body.\n",
+            encoding="utf-8",
+        )
+        out = tmp_path / "h.docx"
+        build_document(str(md), output_path=str(out))
+
+        text = "\n".join(p.text for p in Document(out).paragraphs)
+        assert "Read the guide carefully" in text, \
+            "link text was dropped from the heading"
+        assert "Entirely a link" in text, \
+            "a heading consisting only of a link rendered blank"
+        # The static TOC entries are built by pre-scanning the markdown, so
+        # they must be stripped of syntax too - otherwise the contents page
+        # shows '[the guide](https://example.com)' to the reader.
+        assert "](" not in text, \
+            f"raw link markdown reached the rendered document:\n{text[:400]}"
+
+
+class TestStripInlineMarkdown:
+    """TOC entries are plain text; inline syntax must not survive into them."""
+
+    @pytest.mark.parametrize("raw,expected", [
+        ("[the guide](https://example.com)", "the guide"),
+        ("Read [the guide](https://example.com) now", "Read the guide now"),
+        ("[Wikipedia](https://e.org/Function_(mathematics))", "Wikipedia"),
+        ("**bold** heading", "bold heading"),
+        ("`code` heading", "code heading"),
+        ("*italic*", "italic"),
+        ("**[bold link](https://example.com)**", "bold link"),
+        ("plain heading", "plain heading"),
+        ("![diagram](x.png)", "diagram"),
+    ])
+    def test_strips_to_reader_text(self, raw, expected):
+        from docx_builder.metadata import strip_inline_markdown
+        assert strip_inline_markdown(raw) == expected
+
+    def test_table_link_with_parentheses_in_url(self, tmp_path):
+        """A destination may contain balanced parentheses."""
+        from docx import Document
+        from docx_builder.builder import build_document
+
+        url = "https://en.wikipedia.org/wiki/Function_(mathematics)"
+        md = tmp_path / "p.md"
+        md.write_text(
+            "---\n"
+            "title: Paren Link\n"
+            "doc_type: reference\n"
+            "status: Draft\n"
+            "version: '0.1'\n"
+            "author: Test\n"
+            "date: 2026-08-03\n"
+            "---\n\n"
+            "# Heading\n\n"
+            "| Term | Source |\n"
+            "|---|---|\n"
+            f"| Function | [Wikipedia]({url}) |\n",
+            encoding="utf-8",
+        )
+        out = tmp_path / "p.docx"
+        build_document(str(md), output_path=str(out))
+
+        assert url in _hyperlink_targets(out), "URL truncated at the first ')'"
+        cells = [c.text for t in Document(out).tables for r in t.rows for c in r.cells]
+        assert not any(c.strip().endswith(")") and "Wikipedia" in c for c in cells), \
+            "stray closing parenthesis left in the cell"
+
+    def test_target_with_query_string_round_trips(self, tmp_path):
+        """'&' is XML-escaped inside the .rels; it must decode back."""
+        from docx_builder.builder import build_document
+
+        url = "https://example.com/search?a=1&b=2"
+        md = tmp_path / "q.md"
+        md.write_text(
+            "---\n"
+            "title: Query Link\n"
+            "doc_type: reference\n"
+            "status: Draft\n"
+            "version: '0.1'\n"
+            "author: Test\n"
+            "date: 2026-08-03\n"
+            "---\n\n"
+            "# Heading\n\n"
+            f"A [query link]({url}) in body text.\n",
+            encoding="utf-8",
+        )
+        out = tmp_path / "q.docx"
+        build_document(str(md), output_path=str(out))
+        assert url in _hyperlink_targets(out)

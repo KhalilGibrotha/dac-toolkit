@@ -54,6 +54,8 @@ from .xml_helpers import (
     set_paragraph_border_bottom,
     set_row_cant_split, set_para_keep_next,
 )
+from .styles import apply_heading_style
+from .metadata import HeadingNumberer
 
 
 # Schemes that can become a live external hyperlink in a DOCX. A relationship
@@ -67,7 +69,7 @@ _LINKABLE_SCHEMES = ("http://", "https://", "mailto:", "ftp://", "ftps://")
 _URI_SAFE = "/:?#[]@!$&'()*+,;=~%"
 
 
-def normalize_href(raw: str) -> str | None:
+def normalize_href(raw: str | None) -> str | None:
     """
     Return an absolute URL safe to use as a DOCX relationship target, or None
     when the reference should not become a live hyperlink.
@@ -123,8 +125,6 @@ def open_hyperlink(para, href):
     container.set(qn("r:id"), r_id)
     para._p.append(container)
     return container
-from .styles import apply_heading_style
-from .metadata import HeadingNumberer
 
 
 def _strip_html(text: str) -> str:
@@ -184,7 +184,13 @@ _INLINE_MD_RE = re.compile(
     # Named so the numbered groups above keep their indices. Placed last is
     # safe: the alternatives above can only start at a backtick, asterisk, or
     # underscore, so at a '[' this is the only one that can match.
-    r'|(?P<link>\[(?P<ltext>[^\]\n]*)\]\((?P<lurl>[^)\s]*)\))'  # [text](url)
+    #
+    # The destination allows one level of balanced parentheses, as CommonMark
+    # does. A plain [^)\s]* terminates at the first ')', which truncates a URL
+    # like .../Function_(mathematics) mid-path and leaves a stray ')' in the
+    # cell.
+    r'|(?P<link>\[(?P<ltext>[^\]\n]*)\]'
+    r'\((?P<lurl>(?:[^()\s]|\([^()\s]*\))*)\))'  # [text](url)
 )
 
 
@@ -499,7 +505,15 @@ class HtmlToDocx(HTMLParser):
         if tag in ('h1', 'h2', 'h3', 'h4', 'h5', 'h6'):
             if self._current_para:
                 level    = min(int(tag[1]), 3)   # clamp h4–h6 to h3 style
-                raw_text = ''.join(r.text for r in self._current_para.runs)
+                # Walk every w:t descendant rather than paragraph.runs.
+                # python-docx's .runs returns only direct w:r children, so a
+                # run moved inside a w:hyperlink is invisible to it - which
+                # silently dropped the link text out of a heading, and left a
+                # heading that was entirely a link completely blank.
+                raw_text = ''.join(
+                    node.text or ''
+                    for node in self._current_para._p.iter(qn('w:t'))
+                )
                 numbered = self._heading_numberer.format(level, raw_text)
                 # Replace paragraph content with the numbered heading text
                 # so the heading in the document body and the TOC field match.
