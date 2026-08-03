@@ -46,6 +46,7 @@ Update devfile to use UDI base image
 ```
 
 Avoid:
+
 - `Fixed...`, `Fixes...`, `Adding...`
 - Vague messages like `updates` or `misc fixes`
 
@@ -59,6 +60,7 @@ Avoid:
 ## Reporting Bugs
 
 Open a GitHub issue with:
+
 - A description of the problem
 - Steps to reproduce
 - Expected vs actual behavior
