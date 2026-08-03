@@ -18,7 +18,9 @@ Why the multi-stage approach:
 
 Supported markdown elements:
   Block:  h1–h6, p, ul (unordered), ol (ordered), blockquote, pre/code, hr
-  Inline: strong, em, code, a (hyperlink text only, no live URL in DOCX)
+  Inline: strong, em, code, a (live hyperlink for absolute http/https/mailto/
+          ftp targets; relative paths and bare #fragments render as styled
+          text, since neither has an absolute form to point a reader at)
   Images: ![alt text](relative/path/to/image.png) — resolved relative to
           the source .md file's directory (PNG, JPG, GIF, TIFF, BMP)
   Tables: GFM pipe tables with header / alignment divider / body rows
@@ -34,11 +36,15 @@ Elements not supported (rendered as plain text or ignored):
 import os
 import re
 from html.parser import HTMLParser
+from urllib.parse import quote
 
 from docx.shared import Inches, Pt
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.enum.table import WD_TABLE_ALIGNMENT
 from docx.shared import RGBColor
+from docx.opc.constants import RELATIONSHIP_TYPE as RT
+from docx.oxml.ns import qn
+from docx.oxml import OxmlElement
 
 from .constants import BLUE_LINK, BLACK, FONT_BODY, GRAY_TEXT
 from .diagrams import fit_image_dimensions
@@ -48,6 +54,75 @@ from .xml_helpers import (
     set_paragraph_border_bottom,
     set_row_cant_split, set_para_keep_next,
 )
+
+
+# Schemes that can become a live external hyperlink in a DOCX. A relationship
+# Target is handed to the reader's OS to open, so the set stays deliberately
+# small: no javascript:, no file:, no data:.
+_LINKABLE_SCHEMES = ("http://", "https://", "mailto:", "ftp://", "ftps://")
+
+# RFC 3986 characters that are already legal in a URI, plus '%' so existing
+# percent-escapes survive. Without '%' in the safe set, a SharePoint URL
+# containing %20 would re-encode to %2520 and stop resolving.
+_URI_SAFE = "/:?#[]@!$&'()*+,;=~%"
+
+
+def normalize_href(raw: str) -> str | None:
+    """
+    Return an absolute URL safe to use as a DOCX relationship target, or None
+    when the reference should not become a live hyperlink.
+
+    None is returned for relative paths ('../patterns/foo.md') and bare
+    fragments ('#overview'). Relative links are resolved to absolute URLs
+    earlier in the pipeline when the repo base URL is configured; anything
+    still relative here has no absolute form, and a relationship pointing at
+    it would resolve against wherever the reader happens to have saved the
+    file. Styled-but-inert text is the honest rendering of that.
+
+    Percent-encoding is applied only to characters that are illegal in a URI.
+    Input that is already encoded passes through unchanged, so a SharePoint
+    path ('.../Shared%20Documents/...') survives intact while a raw space
+    becomes %20.
+    """
+    if not raw:
+        return None
+
+    url = raw.strip()
+    if not url or url.startswith("#"):
+        return None
+
+    if not url.lower().startswith(_LINKABLE_SCHEMES):
+        return None
+
+    # quote() leaves unreserved characters alone; _URI_SAFE adds the reserved
+    # set and '%'. Anything else - spaces, quotes, non-ASCII - is encoded as
+    # UTF-8 percent-escapes, which is what Word expects in a Target.
+    return quote(url, safe=_URI_SAFE, encoding="utf-8", errors="replace")
+
+
+def open_hyperlink(para, href):
+    """
+    Append an empty w:hyperlink to *para* for *href* and return it, or return
+    None when href is not linkable. Runs appended to the returned element
+    become clickable; runs added to the paragraph directly do not.
+
+    Shared by the body-text walker and the table-cell renderer, which are
+    otherwise separate code paths - table cells never reach the HTML walker,
+    which is why links in tables rendered as raw markdown until this existed.
+    """
+    target = normalize_href(href)
+    if not target:
+        return None
+    try:
+        r_id = para.part.relate_to(target, RT.HYPERLINK, is_external=True)
+    except Exception:
+        # A malformed target must not abort a 100-document build; the text
+        # still renders, just without a live link.
+        return None
+    container = OxmlElement("w:hyperlink")
+    container.set(qn("r:id"), r_id)
+    para._p.append(container)
+    return container
 from .styles import apply_heading_style
 from .metadata import HeadingNumberer
 
@@ -106,14 +181,22 @@ _INLINE_MD_RE = re.compile(
     r'|(__[^_\n]+__)'           # group 4 — bold  __...__
     r'|(\*[^*\n]+\*)'          # group 5 — italic  *...*
     r'|((?<!\w)_(?!_)[^_\n]+_(?!_)(?!\w))'  # group 6 — italic  _..._ (not __, not inside words)
+    # Named so the numbered groups above keep their indices. Placed last is
+    # safe: the alternatives above can only start at a backtick, asterisk, or
+    # underscore, so at a '[' this is the only one that can match.
+    r'|(?P<link>\[(?P<ltext>[^\]\n]*)\]\((?P<lurl>[^)\s]*)\))'  # [text](url)
 )
 
 
-def _add_cell_run(para, text, *, bold, italic, code, color, font_name, font_size):
+def _add_cell_run(para, text, *, bold, italic, code, color, font_name, font_size,
+                  underline=False, container=None):
     """Add a single formatted run to a table-cell paragraph.
 
     Emoji characters are split into separate runs with Segoe UI Emoji font so
     Word can locate the glyphs.  Code spans are never split (no emoji expected).
+
+    *container* is an open w:hyperlink element from open_hyperlink(); when
+    given, runs are moved inside it so the whole span is clickable.
     """
     if not text:
         return
@@ -126,7 +209,10 @@ def _add_cell_run(para, text, *, bold, italic, code, color, font_name, font_size
         run.italic    = italic
         run.font.name = "Courier New" if code else ("Segoe UI Emoji" if is_emoji else font_name)
         run.font.size = font_size
+        run.underline = underline
         set_run_color(run, color)
+        if container is not None:
+            container.append(run._element)
 
 
 def _render_cell_text(para, text, *, base_bold=False, color, font_name, font_size):
@@ -152,7 +238,19 @@ def _render_cell_text(para, text, *, base_bold=False, color, font_name, font_siz
                           color=color, font_name=font_name, font_size=font_size)
 
         matched = m.group(0)
-        if m.group(1):                          # `code`
+        if m.group('link'):                     # [text](url)
+            label = m.group('ltext') or m.group('lurl')
+            container = open_hyperlink(para, m.group('lurl'))
+            # A relative or fragment target yields no container. The label
+            # still renders in link styling - the reader sees the same words
+            # they would in GitHub, just without a destination - which beats
+            # showing them raw [text](path) markdown.
+            _add_cell_run(para, label,
+                          bold=base_bold, italic=False, code=False,
+                          color=BLUE_LINK, font_name=font_name,
+                          font_size=font_size, underline=True,
+                          container=container)
+        elif m.group(1):                        # `code`
             _add_cell_run(para, matched[1:-1],
                           bold=False, italic=False, code=True,
                           color=RGBColor(0x1F, 0x1F, 0x1F),
@@ -219,6 +317,15 @@ class HtmlToDocx(HTMLParser):
     def _current_tags(self):
         return {t for t, _ in self._tag_stack}
 
+    def _current_href(self):
+        """href of the innermost open <a>, or None. Searches from the top of
+        the stack so a nested anchor - which mistune will not emit, but a
+        hand-written HTML fragment could - resolves to the nearest one."""
+        for tag, attrs in reversed(self._tag_stack):
+            if tag == 'a':
+                return attrs.get('href')
+        return None
+
     def _flush_para(self):
         self._current_para = None
 
@@ -228,10 +335,17 @@ class HtmlToDocx(HTMLParser):
             para_spacing(self._current_para, before=before, after=after)
         return self._current_para
 
-    def _add_run(self, text, bold=False, italic=False, code=False, link=False):
+    def _add_run(self, text, bold=False, italic=False, code=False, link=False,
+                 href=None):
         if not text:
             return
         para = self._ensure_para()
+
+        # A live hyperlink is a w:hyperlink element carrying a relationship id,
+        # wrapping the runs. Link styling alone (blue + underline) only looks
+        # clickable; without the relationship there is nothing to click.
+        container = open_hyperlink(para, href) if link else None
+
         # Split on emoji boundaries so emoji segments get Segoe UI Emoji font.
         # Code spans are never emoji; skip splitting for them.
         segments = [(text, False)] if code else _split_for_emoji(text)
@@ -250,6 +364,10 @@ class HtmlToDocx(HTMLParser):
                 set_run_color(run, RGBColor(0x1F, 0x1F, 0x1F))
             else:
                 set_run_color(run, BLACK)
+            # add_run appended to the paragraph; move it inside the hyperlink
+            # so the whole link text is clickable, emoji segments included.
+            if container is not None:
+                container.append(run._element)
 
     def _handle_img(self, attrs_dict: dict) -> None:
         """
@@ -454,7 +572,8 @@ class HtmlToDocx(HTMLParser):
         code   = 'code'   in tags and 'pre' not in tags
         link   = 'a'      in tags
 
-        self._add_run(data, bold=bold, italic=italic, code=code, link=link)
+        self._add_run(data, bold=bold, italic=italic, code=code, link=link,
+                      href=self._current_href())
 
 
 # ── GFM table extraction ──────────────────────────────────────────────────────
