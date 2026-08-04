@@ -18,6 +18,15 @@ inert for the file, and the usual cause is a raw control byte embedded in
 the source - the kind of thing that is invisible in an editor and fatal in a
 container.
 
+Worth stating because it is counter-intuitive: no .gitattributes pattern
+rescues that case. `text` and `text=auto` behave identically once git's
+detector has called a file binary, because the attribute requests a
+conversion the detector never runs. Measured, not assumed - a .sh file
+holding a lone CR lands at `i/-text` under `* text=auto eol=lf` and under an
+explicit `*.sh text eol=lf` alike, while an ordinary CRLF file normalizes to
+`i/lf` under both. So a catch-all is not the weaker choice, and this check
+is the only thing that catches what neither pattern can.
+
 Usage:
     lint-line-endings.py [--path .]
 """
@@ -46,8 +55,16 @@ def main() -> int:
             ["git", "-C", args.path, "ls-files", "--eol"],
             capture_output=True, text=True, check=True,
         ).stdout
-    except (subprocess.CalledProcessError, FileNotFoundError) as exc:
-        print(f"cannot read git index: {exc}", file=sys.stderr)
+    except FileNotFoundError:
+        print("cannot read git index: git is not on PATH", file=sys.stderr)
+        return 2
+    except subprocess.CalledProcessError as exc:
+        # git's own stderr says which of these it was - not a repository,
+        # bad --path, corrupt index. Printing only the exception object
+        # gives a CI reader an exit status and nothing to act on.
+        print(f"cannot read git index (git exited {exc.returncode}):", file=sys.stderr)
+        print((exc.stderr or "").rstrip() or "  (git wrote nothing to stderr)",
+              file=sys.stderr)
         return 2
 
     crlf: list[str] = []

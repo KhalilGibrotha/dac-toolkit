@@ -23,6 +23,27 @@ jobs:
           python -m pytest scripts/tests -q
           python -m pytest docx_builder/tests -q
 
+  line-endings:
+    name: Line endings
+    runs-on: ubuntu-latest
+    steps:
+      # The check reads `git ls-files --eol`, so it needs the index rather
+      # than the working tree. A checkout is enough; a bare file copy is not.
+      - uses: actions/checkout@v7
+      - name: Check tracked files for CRLF and misclassified text
+        run: python3 scripts/lint-line-endings.py --path .
+      - name: Job summary
+        if: always()
+        run: |
+          {
+            echo "## Line endings - ${{ job.status }}"
+            echo
+            echo "Tracked text files must reach the index as LF. CRLF renders a"
+            echo "four-line edit as a whole-file rewrite, and a text file git"
+            echo "has classified binary silently ignores its own .gitattributes"
+            echo "rule - which no pattern can fix, only this check can find."
+          } >> "$GITHUB_STEP_SUMMARY"
+
   shell-lint:
     name: Shell lint
     runs-on: ubuntu-latest
