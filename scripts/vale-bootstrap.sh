@@ -30,7 +30,7 @@ fi
 # Resolve StylesPath from .vale.ini rather than assuming a layout. Copying to
 # the wrong path leaves BasedOnStyles unresolvable in an offline workspace,
 # which surfaces as a confusing "style not found" rather than a missing file.
-STYLES_REL="$(sed -n 's/^[[:space:]]*StylesPath[[:space:]]*=[[:space:]]*//p'     "$CONTENT_DIR/.vale.ini" | head -n 1 | tr -d '')"
+STYLES_REL="$(sed -n 's/^[[:space:]]*StylesPath[[:space:]]*=[[:space:]]*//p'     "$CONTENT_DIR/.vale.ini" | head -n 1 | tr -d '\r')"
 STYLES_REL="${STYLES_REL:-.vale/styles}"
 STYLES_DIR="$CONTENT_DIR/$STYLES_REL"
 
