@@ -148,8 +148,13 @@ def commit_history(md_path: str, limit: int = REVISION_LIMIT,
     # %x1f is a unit separator: commit subjects contain almost anything, and
     # splitting on a character a human can type is how a subject with a pipe
     # or a tab corrupts the parse.
+    # --follow traverses renames. Without it a moved or renamed document
+    # shows only the commits made under its CURRENT path, so the table
+    # attributes it to whoever renamed it and drops the original authors -
+    # the same class of error as crediting a line-ending pass. It requires
+    # exactly one pathspec, which is what is passed here.
     out = _git(
-        ["log", f"-{max(1, limit)}", "--date=short",
+        ["log", "--follow", f"-{max(1, limit)}", "--date=short",
          "--format=%ad%x1f%ae%x1f%an%x1f%s", "--", path.name],
         path.parent,
     )

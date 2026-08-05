@@ -121,6 +121,26 @@ def test_contributors_overflow_is_reported_not_wrapped(repo):
     assert contributors(str(doc), max_named=2).endswith("+2")
 
 
+def test_authorship_survives_a_rename(tmp_path):
+    """A rename must not reassign the document to whoever moved it.
+
+    `git log -- <path>` sees only commits made under the CURRENT name, so
+    without --follow a renamed document is credited entirely to the rename
+    commit. Same class of error as crediting a line-ending pass.
+    """
+    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
+    old = tmp_path / "old.md"
+    _commit(tmp_path, "Original Author", "original.author@ncsecu.org",
+            "write the document", old, "# doc\n\nbody\n")
+    subprocess.run(["git", "-C", str(tmp_path), "mv", "old.md", "new.md"],
+                   check=True, capture_output=True)
+    _commit(tmp_path, "Renamer Person", "renamer.person@ncsecu.org",
+            "rename file", tmp_path / "new.md", "# doc\n\nbody\n")
+
+    names = contributors(str(tmp_path / "new.md"), max_named=5)
+    assert "Original Author" in names, "pre-rename authorship was lost"
+
+
 def test_author_name_override_reaches_historical_identities(repo):
     doc = repo / "doc.md"
     _commit(repo, "oldhandle", "oldhandle@users.noreply.github.com",
