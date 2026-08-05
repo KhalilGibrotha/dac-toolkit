@@ -182,7 +182,7 @@ jobs:
       # Always retain the SBOM, independent of whether it fits the attestation
       # predicate cap. This is the durable copy.
       - name: Upload SBOM artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: sbom
           path: sbom.cdx.json
