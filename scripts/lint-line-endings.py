@@ -68,21 +68,29 @@ TEXT_BASENAMES = {
 def looks_like_text(path: str) -> bool:
     """Should this path have been treated as text?
 
-    The final suffix decides when it is a known binary format; inner
-    suffixes only rescue files whose final suffix is UNKNOWN. That covers
-    the rename case this exists for - `example-caller.yml.disabled` yields
-    `.disabled`, which names nothing, so `.yml` inside it counts and the
-    file stays under the policy. It does not cover `data.csv.gz`, where
-    `.gz` names a real binary format and the `.csv` inside it is content
-    the archive wraps, not the file's own encoding.
+    Scan suffixes right to left and let the first KNOWN one decide. The
+    suffix nearest the end that names a real format is the file's format;
+    anything after it is renaming (`.disabled`, `.bak`), and anything
+    before it is wrapped content.
+
+      example.yml.disabled   .disabled unknown -> .yml text     -> True
+      data.csv.gz            .gz binary                          -> False
+      data.csv.gz.disabled   .disabled unknown -> .gz binary     -> False
+      notes.md.bak           .bak unknown -> .md text            -> True
+
+    The last case above is why the scan cannot stop at the final suffix,
+    and the third is why it cannot match any suffix: both simpler rules
+    were tried, and each one misclassified a case the other got right.
     """
     p = PurePosixPath(path)
     if p.name in TEXT_BASENAMES:
         return True
-    suffixes = [s.lower() for s in p.suffixes]
-    if suffixes and suffixes[-1] in BINARY_EXTENSIONS:
-        return False
-    return any(s in TEXT_EXTENSIONS for s in suffixes)
+    for s in reversed([s.lower() for s in p.suffixes]):
+        if s in BINARY_EXTENSIONS:
+            return False
+        if s in TEXT_EXTENSIONS:
+            return True
+    return False
 
 
 def main() -> int:

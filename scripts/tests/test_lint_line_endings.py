@@ -59,6 +59,12 @@ MOD = _load()
         ("data.csv.gz", False),
         ("archive.tar.gz", False),
         ("README.md.png", False),
+        # A RENAMED binary: the final suffix names nothing, but the nearest
+        # known suffix is binary. Right-to-left scanning is what gets this
+        # right - final-suffix-only and any-suffix rules each fail one of
+        # this row and the .yml.disabled row above.
+        ("data.csv.gz.disabled", False),
+        ("backup.tar.gz.old", False),
         # Case-insensitivity.
         ("REPORT.MD", True),
         ("PHOTO.PNG", False),
