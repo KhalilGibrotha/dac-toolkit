@@ -119,18 +119,42 @@ def valid_statuses_for(doc_type: str) -> set[str]:
     return STANDARD_STATUSES
 
 
-def _org_defaults(org_path: str | None) -> set[str]:
+# Where an org file conventionally lives, relative to the scanned root.
+# Auto-detection exists so every entry point behaves the same without each
+# one remembering a flag: CI, pre-commit, the Dev Spaces task, and whatever
+# a developer types by hand. A flag that only some callers pass reproduces
+# the exact inconsistency this feature was added to remove.
+ORG_FILE_CANDIDATES = ["dac/org.yaml", "org.yaml", "vars/org.yaml"]
+
+
+def _find_org_file(root: Path, explicit: str | None) -> Path | None:
+    """Resolve the org file: an explicit path, else the conventional one."""
+    if explicit:
+        p = Path(explicit)
+        return p if p.is_file() else None
+    for rel in ORG_FILE_CANDIDATES:
+        candidate = root / rel
+        if candidate.is_file():
+            return candidate
+    return None
+
+
+def _org_defaults(org_path: Path | str | None) -> set[str]:
     """Fields the org file supplies a default for.
 
-    Read leniently: a malformed or unreadable org file means "no defaults",
-    not a crash. Its own validity is not this linter's business.
+    Read leniently: unreadable, malformed, or simply not a mapping means "no
+    defaults", not a crash. A YAML file that parses to a list or a scalar is
+    valid YAML and useless here, and this linter validates documents - the
+    org file's own shape is not its business to enforce.
     """
     if not org_path:
         return set()
     try:
         with open(org_path, "r", encoding="utf-8") as f:
-            data = yaml.safe_load(f) or {}
+            data = yaml.safe_load(f)
     except (OSError, yaml.YAMLError):
+        return set()
+    if not isinstance(data, dict):
         return set()
     org = data.get("org", data)
     if not isinstance(org, dict):
@@ -271,7 +295,8 @@ def main():
         metavar="FILE",
         help="Path to org.yaml. Fields it supplies a default for (currently "
              "owner) stop being required in front matter, matching what "
-             "docx-build --org already accepts.",
+             "docx-build --org already accepts. Auto-detected from "
+             + ", ".join(ORG_FILE_CANDIDATES) + " when omitted.",
     )
     args = parser.parse_args()
 
@@ -280,7 +305,12 @@ def main():
         print(f"Error: path is not a directory: {root}", file=sys.stderr)
         sys.exit(1)
 
-    sys.exit(scan(root, strict=args.strict, org_defaults=_org_defaults(args.org)))
+    org_file = _find_org_file(root, args.org)
+    if args.org and org_file is None:
+        print(f"Error: org file not found: {args.org}", file=sys.stderr)
+        sys.exit(1)
+
+    sys.exit(scan(root, strict=args.strict, org_defaults=_org_defaults(org_file)))
 
 
 if __name__ == "__main__":
