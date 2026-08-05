@@ -111,7 +111,7 @@ def build_document(
     rev_section.header.is_linked_to_previous = False
     remove_page_border(rev_section)
 
-    build_revision_table(doc, meta)
+    build_revision_table(doc, meta, md_path=md_path)
 
     # ── 6. Section 4: Body content ────────────────────────────────────────────
     body_section = add_section_break(doc, WD_SECTION.NEW_PAGE)

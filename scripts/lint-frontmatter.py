@@ -58,6 +58,13 @@ INFORMATIONAL_TYPES = {"meeting-notes"}
 # Informational documents (meeting notes, informal captures) have a reduced
 # required field set — no doc_type, domain, version, or owner.
 REQUIRED_FIELDS_STANDARD     = ["title", "doc_type", "domain", "department", "status", "version", "date", "author", "owner"]
+
+# Fields a repository-level org file may supply, so a document that omits
+# them still renders. Passing --org tells this linter which of these have a
+# default and drops them from the required set; without it, nothing changes.
+# Rendering and linting must agree on what a document is allowed to omit, or
+# CI rejects documents the builder handles perfectly well.
+ORG_DEFAULTABLE_FIELDS = ["owner"]
 REQUIRED_FIELDS_INFORMATIONAL = ["title", "status", "date", "author"]
 
 # Files to skip entirely (no front matter expected)
@@ -112,7 +119,29 @@ def valid_statuses_for(doc_type: str) -> set[str]:
     return STANDARD_STATUSES
 
 
-def validate(fm: dict) -> list[tuple[str, str]]:
+def _org_defaults(org_path: str | None) -> set[str]:
+    """Fields the org file supplies a default for.
+
+    Read leniently: a malformed or unreadable org file means "no defaults",
+    not a crash. Its own validity is not this linter's business.
+    """
+    if not org_path:
+        return set()
+    try:
+        with open(org_path, "r", encoding="utf-8") as f:
+            data = yaml.safe_load(f) or {}
+    except (OSError, yaml.YAMLError):
+        return set()
+    org = data.get("org", data)
+    if not isinstance(org, dict):
+        return set()
+    return {
+        field for field in ORG_DEFAULTABLE_FIELDS
+        if str(org.get(field, "")).strip()
+    }
+
+
+def validate(fm: dict, org_defaults: set[str] | None = None) -> list[tuple[str, str]]:
     """
     Return a list of (severity, message) tuples.
     Severity is "ERROR" or "WARNING".
@@ -126,6 +155,9 @@ def validate(fm: dict) -> list[tuple[str, str]]:
         if status == "Informational"
         else REQUIRED_FIELDS_STANDARD
     )
+    # A field the org file defaults is not missing when a document omits it.
+    if org_defaults:
+        required = [f for f in required if f not in org_defaults]
 
     # Required fields
     for field in required:
@@ -160,7 +192,7 @@ def validate(fm: dict) -> list[tuple[str, str]]:
 
 # ── Scanner ────────────────────────────────────────────────────────────────────
 
-def scan(root: Path, strict: bool) -> int:
+def scan(root: Path, strict: bool, org_defaults: set[str] | None = None) -> int:
     """Walk root, validate each eligible .md file. Returns exit code."""
     errors   = 0
     warnings = 0
@@ -195,7 +227,7 @@ def scan(root: Path, strict: bool) -> int:
                 skipped += 1
                 continue
 
-            issues = validate(fm)
+            issues = validate(fm, org_defaults)
             checked += 1
 
             for severity, msg in issues:
@@ -234,6 +266,13 @@ def main():
         action="store_true",
         help="Exit non-zero on warnings as well as errors",
     )
+    parser.add_argument(
+        "--org",
+        metavar="FILE",
+        help="Path to org.yaml. Fields it supplies a default for (currently "
+             "owner) stop being required in front matter, matching what "
+             "docx-build --org already accepts.",
+    )
     args = parser.parse_args()
 
     root = Path(args.path).resolve()
@@ -241,7 +280,7 @@ def main():
         print(f"Error: path is not a directory: {root}", file=sys.stderr)
         sys.exit(1)
 
-    sys.exit(scan(root, strict=args.strict))
+    sys.exit(scan(root, strict=args.strict, org_defaults=_org_defaults(args.org)))
 
 
 if __name__ == "__main__":
