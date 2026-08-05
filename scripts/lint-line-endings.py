@@ -8,9 +8,10 @@ wrong. A pattern that misses a file type produces no error - the file simply
 carries CRLF into the index, and the first symptom is a four-line edit
 rendering as a whole-file rewrite, weeks later, in someone's pull request.
 
-That happened here: eol=lf was pinned for *.sh, *.py, *.yml and *.yaml but
-never for *.md, and 220 of 289 tracked files accumulated CRLF before anyone
-noticed. This check turns that silence into a failing job.
+That is not hypothetical. In one repository using this check, eol=lf was
+pinned for *.sh, *.py, *.yml and *.yaml but never for *.md, and 220 of 289
+tracked files accumulated CRLF before anyone noticed. This check turns that
+silence into a failing job.
 
 It also reports files git has classified as BINARY (`i/-text`) when their
 extension suggests otherwise. That classification makes .gitattributes
@@ -36,6 +37,7 @@ from __future__ import annotations
 import argparse
 import subprocess
 import sys
+from pathlib import PurePosixPath
 
 # Extensions that must never be classified binary. A binary classification
 # here means an embedded control byte, not a legitimately binary format.
@@ -43,6 +45,52 @@ TEXT_EXTENSIONS = {
     ".md", ".qmd", ".yml", ".yaml", ".py", ".sh", ".json", ".jsonc",
     ".csv", ".txt", ".cfg", ".ini", ".conf", ".toml", ".scss", ".j2",
 }
+
+# Formats that are binary no matter what the inner suffixes claim. The
+# FINAL suffix names the actual on-disk format: `data.csv.gz` carries `.csv`
+# in its suffixes, but a gzip is binary whatever it wraps.
+BINARY_EXTENSIONS = {
+    ".gz", ".bz2", ".xz", ".zst", ".zip", ".tar", ".tgz", ".7z",
+    ".png", ".jpg", ".jpeg", ".gif", ".ico", ".webp", ".svgz",
+    ".pdf", ".docx", ".pptx", ".xlsx",
+    ".woff", ".woff2", ".ttf", ".otf", ".eot",
+    ".so", ".dll", ".exe", ".bin", ".pyc", ".whl",
+}
+
+# Extensionless files that are text by convention.
+TEXT_BASENAMES = {
+    ".gitignore", ".gitattributes", ".editorconfig", ".dockerignore",
+    ".yamllint", ".ansible-lint", "Containerfile", "Dockerfile",
+    "Makefile", "LICENSE", "CODEOWNERS",
+}
+
+
+def looks_like_text(path: str) -> bool:
+    """Should this path have been treated as text?
+
+    Scan suffixes right to left and let the first KNOWN one decide. The
+    suffix nearest the end that names a real format is the file's format;
+    anything after it is renaming (`.disabled`, `.bak`), and anything
+    before it is wrapped content.
+
+      example.yml.disabled   .disabled unknown -> .yml text     -> True
+      data.csv.gz            .gz binary                          -> False
+      data.csv.gz.disabled   .disabled unknown -> .gz binary     -> False
+      notes.md.bak           .bak unknown -> .md text            -> True
+
+    The last case above is why the scan cannot stop at the final suffix,
+    and the third is why it cannot match any suffix: both simpler rules
+    were tried, and each one misclassified a case the other got right.
+    """
+    p = PurePosixPath(path)
+    if p.name in TEXT_BASENAMES:
+        return True
+    for s in reversed([s.lower() for s in p.suffixes]):
+        if s in BINARY_EXTENSIONS:
+            return False
+        if s in TEXT_EXTENSIONS:
+            return True
+    return False
 
 
 def main() -> int:
@@ -85,8 +133,7 @@ def main() -> int:
         elif index_attr == "i/mixed":
             mixed.append(path)
         elif index_attr == "i/-text":
-            dot = path.rfind(".")
-            if dot != -1 and path[dot:].lower() in TEXT_EXTENSIONS:
+            if looks_like_text(path):
                 wrongly_binary.append(path)
 
     for path in crlf:
