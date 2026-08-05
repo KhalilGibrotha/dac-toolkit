@@ -161,7 +161,10 @@ def _org_defaults(org_path: Path | str | None) -> set[str]:
     try:
         with open(org_path, "r", encoding="utf-8") as f:
             data = yaml.safe_load(f)
-    except (OSError, yaml.YAMLError):
+    except (OSError, yaml.YAMLError, UnicodeDecodeError):
+        # UnicodeDecodeError is a ValueError, not an OSError, so it escapes
+        # the obvious catch: a latin-1 or binary file reaches this line and
+        # takes the linter down on the read rather than the parse.
         return set()
     if not isinstance(data, dict):
         return set()

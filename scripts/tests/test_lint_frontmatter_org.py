@@ -110,6 +110,19 @@ def test_explicit_org_path_overrides_detection(repo):
     assert _run(repo, "--org", str(other)).returncode == 0
 
 
+def test_undecodable_org_file_degrades_rather_than_crashing(repo):
+    """A file that is not UTF-8 at all.
+
+    UnicodeDecodeError is a ValueError, not an OSError, so it escapes the
+    obvious catch and would take the linter down on the READ rather than the
+    parse - a failure mode the malformed-YAML cases above never reach.
+    """
+    (repo / "dac" / "org.yaml").write_bytes(bytes([0xFF, 0xFE, 0x00, 0x80, 0x81]))
+    result = _run(repo)
+    assert result.returncode == 1, result.stderr
+    assert "Traceback" not in result.stderr
+
+
 def test_relative_org_path_resolves_against_the_scanned_root(repo, tmp_path):
     """--org may be written relative to the tree being linted.
 
