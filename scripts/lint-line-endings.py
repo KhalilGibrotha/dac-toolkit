@@ -46,6 +46,17 @@ TEXT_EXTENSIONS = {
     ".csv", ".txt", ".cfg", ".ini", ".conf", ".toml", ".scss", ".j2",
 }
 
+# Formats that are binary no matter what the inner suffixes claim. The
+# FINAL suffix names the actual on-disk format: `data.csv.gz` carries `.csv`
+# in its suffixes, but a gzip is binary whatever it wraps.
+BINARY_EXTENSIONS = {
+    ".gz", ".bz2", ".xz", ".zst", ".zip", ".tar", ".tgz", ".7z",
+    ".png", ".jpg", ".jpeg", ".gif", ".ico", ".webp", ".svgz",
+    ".pdf", ".docx", ".pptx", ".xlsx",
+    ".woff", ".woff2", ".ttf", ".otf", ".eot",
+    ".so", ".dll", ".exe", ".bin", ".pyc", ".whl",
+}
+
 # Extensionless files that are text by convention.
 TEXT_BASENAMES = {
     ".gitignore", ".gitattributes", ".editorconfig", ".dockerignore",
@@ -57,16 +68,21 @@ TEXT_BASENAMES = {
 def looks_like_text(path: str) -> bool:
     """Should this path have been treated as text?
 
-    Checks EVERY suffix, not just the last one. A compound suffix is exactly
-    where the naive check fails: `example-caller.yml.disabled` yields
-    `.disabled`, which is in no list, so a disabled workflow carrying an
-    embedded control byte would pass a check whose entire job is to catch
-    that. Renaming a file is not supposed to remove it from the policy.
+    The final suffix decides when it is a known binary format; inner
+    suffixes only rescue files whose final suffix is UNKNOWN. That covers
+    the rename case this exists for - `example-caller.yml.disabled` yields
+    `.disabled`, which names nothing, so `.yml` inside it counts and the
+    file stays under the policy. It does not cover `data.csv.gz`, where
+    `.gz` names a real binary format and the `.csv` inside it is content
+    the archive wraps, not the file's own encoding.
     """
     p = PurePosixPath(path)
     if p.name in TEXT_BASENAMES:
         return True
-    return any(s.lower() in TEXT_EXTENSIONS for s in p.suffixes)
+    suffixes = [s.lower() for s in p.suffixes]
+    if suffixes and suffixes[-1] in BINARY_EXTENSIONS:
+        return False
+    return any(s in TEXT_EXTENSIONS for s in suffixes)
 
 
 def main() -> int:
