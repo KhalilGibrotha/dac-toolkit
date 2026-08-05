@@ -20,15 +20,18 @@ from .xml_helpers import (
     set_run_color, para_spacing,
     set_cell_bg, set_cell_borders, set_table_border,
 )
+from .git_metadata import revision_rows, resolve_owner
 
 
-def build_revision_table(doc, meta: dict):
+def build_revision_table(doc, meta: dict, md_path: str | None = None):
     """
     Add a revision history table to the document.
 
     Args:
-        doc:  python-docx Document
-        meta: parsed YAML front matter dictionary
+        doc:     python-docx Document
+        meta:    parsed YAML front matter dictionary
+        md_path: source Markdown path, used to read authorship from git.
+                 Optional so the builder still works outside a checkout.
 
     Table columns: Version | Date | Author | Description
     Column widths sum to 8.0 inches (matches 1-inch margins on 8.5" page).
@@ -70,14 +73,27 @@ def build_revision_table(doc, meta: dict):
         set_run_color(run, RGBColor(0xFF, 0xFF, 0xFF))
 
     # ── Revision rows ─────────────────────────────────────────────────────────
-    revisions = meta.get('revision_history', [])
+    #
+    # Git is consulted first. A hand-maintained author field is wrong the
+    # moment somebody else edits the document, and nothing detects it; git
+    # already records who changed what and when. revision_rows returns None
+    # whenever the front matter should win instead - an explicitly curated
+    # list, or no git history to read.
+    revisions = None
+    if md_path:
+        revisions = revision_rows(md_path, meta)
+
+    if revisions is None:
+        declared = meta.get('revision_history', [])
+        revisions = declared if isinstance(declared, list) else []
+
     if not revisions:
-        # Auto-generate from top-level metadata fields when no explicit list
+        # Nothing curated and nothing derivable: fall back to front matter.
         revisions = [{
             'version':     meta.get('version', '1.0'),
             'date':        str(meta.get('date', '')),
             'author':      meta.get('author', ''),
-            'description': 'Initial draft' if meta.get('status', '').lower() == 'draft'
+            'description': 'Initial draft' if str(meta.get('status', '')).lower() == 'draft'
                            else 'Initial release',
         }]
 
@@ -107,7 +123,7 @@ def build_revision_table(doc, meta: dict):
     related_docs = meta.get('related_docs', [])
 
     meta_fields = [
-        ("Document Owner", meta.get('owner', '')),
+        ("Document Owner", resolve_owner(meta)),
         ("Audience",       ', '.join(audience)     if isinstance(audience, list)     else str(audience)),
         ("Related Docs",   ', '.join(related_docs) if isinstance(related_docs, list) else str(related_docs)),
     ]
