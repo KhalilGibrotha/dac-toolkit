@@ -110,6 +110,25 @@ def test_explicit_org_path_overrides_detection(repo):
     assert _run(repo, "--org", str(other)).returncode == 0
 
 
+def test_relative_org_path_resolves_against_the_scanned_root(repo, tmp_path):
+    """--org may be written relative to the tree being linted.
+
+    Running the linter from somewhere other than the scanned root is normal
+    (a pre-commit hook, a CI step with a working directory set elsewhere).
+    Resolving a relative --org only against the process CWD reports "not
+    found" for a file sitting exactly where the caller said it was.
+    """
+    _write_org(repo, 'org:\n  owner: "Some Team"\n')
+    elsewhere = tmp_path.parent / "cwd-elsewhere"
+    elsewhere.mkdir(exist_ok=True)
+    result = subprocess.run(
+        [sys.executable, str(SCRIPT), "--path", str(repo),
+         "--org", "dac/org.yaml"],
+        capture_output=True, text=True, cwd=str(elsewhere),
+    )
+    assert result.returncode == 0, result.stderr
+
+
 def test_missing_explicit_org_path_is_an_error_not_a_shrug(repo):
     # Silently ignoring a path the caller asked for would hide a typo in CI
     # config as a lint pass. Exit 1 matches this script's existing convention

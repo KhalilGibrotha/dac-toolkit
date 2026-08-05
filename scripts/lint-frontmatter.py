@@ -128,10 +128,19 @@ ORG_FILE_CANDIDATES = ["dac/org.yaml", "org.yaml", "vars/org.yaml"]
 
 
 def _find_org_file(root: Path, explicit: str | None) -> Path | None:
-    """Resolve the org file: an explicit path, else the conventional one."""
+    """Resolve the org file: an explicit path, else the conventional one.
+
+    A relative --org is tried against the working directory first, because
+    that is what every CLI does with a path argument, and then against the
+    scanned root, because --org describes the tree being linted and a caller
+    standing elsewhere reasonably writes the path relative to it. Honouring
+    only one of the two reports "not found" for a file that is plainly there.
+    """
     if explicit:
-        p = Path(explicit)
-        return p if p.is_file() else None
+        for candidate in (Path(explicit), root / explicit):
+            if candidate.is_file():
+                return candidate
+        return None
     for rel in ORG_FILE_CANDIDATES:
         candidate = root / rel
         if candidate.is_file():
