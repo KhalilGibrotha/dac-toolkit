@@ -47,7 +47,9 @@ from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
 
 from .constants import (BLUE_LINK, BLACK, FONT_BODY, FONT_MONO, GRAY_TEXT,
-                        SIZE_CODE_IN_CELL, SIZE_TABLE_CELL, SIZE_TABLE_HEADER)
+                        SIZE_CODE_IN_CELL, SIZE_TABLE_CELL, SIZE_TABLE_HEADER,
+                        TABLE_COL_CHAR_CAP, TABLE_MIN_COL_IN,
+                        TABLE_TOTAL_WIDTH_IN)
 from .diagrams import fit_image_dimensions
 from .xml_helpers import (
     set_run_color, para_spacing,
@@ -639,6 +641,74 @@ def extract_md_tables(md_text: str) -> tuple[str, list[dict]]:
     return processed, tables
 
 
+_MD_INLINE_RE = re.compile(
+    r'\[([^\]]*)\]\([^)]*\)'      # [text](url) -> text
+    r'|<([^>\s]+)>'               # <url>       -> url
+    r'|[`*_]+'                    # emphasis and code marks
+)
+
+
+def _visible_len(cell: str) -> str:
+    """Cell text as the reader sees it, with inline markdown syntax removed.
+
+    Width should follow rendered text, not source. Without this a cell of
+    ``**Recommended target**`` claims four characters it never draws.
+    """
+    return _MD_INLINE_RE.sub(lambda m: m.group(1) or m.group(2) or '', cell)
+
+
+def _column_widths(header_row, body_rows, n_cols,
+                   total_in=TABLE_TOTAL_WIDTH_IN,
+                   min_in=TABLE_MIN_COL_IN,
+                   char_cap=TABLE_COL_CHAR_CAP):
+    """Distribute table width across columns by how much text each holds.
+
+    Even distribution is what makes rendered tables look wrong: a column of
+    single digits claims the same inches as a column of sentences, so one
+    side is a field of whitespace while the other wraps every row.
+
+    Each column asks for width on two grounds:
+
+    * its **longest word**, because a word that does not fit is a word that
+      breaks badly or overflows the cell; and
+    * its **longest cell**, capped at *char_cap* — past that point a cell is
+      going to wrap no matter what it gets, so letting it bid its full length
+      would starve every other column to no benefit.
+
+    Widths are then allocated in proportion to those bids, and any column
+    landing under *min_in* is raised to it, with the shortfall taken from the
+    columns that have room to give. A single-digit column ends up narrow but
+    still legible, which is the whole point.
+    """
+    def bid(idx):
+        texts = [_visible_len(header_row[idx] if idx < len(header_row) else '')]
+        texts += [_visible_len(row[idx]) for row in body_rows if idx < len(row)]
+        longest_word = max((len(w) for t in texts for w in t.split()), default=1)
+        longest_cell = max((len(t) for t in texts), default=1)
+        return float(max(longest_word, min(longest_cell, char_cap), 1))
+
+    bids  = [bid(i) for i in range(n_cols)]
+    total_bid = sum(bids) or 1.0
+    widths = [total_in * b / total_bid for b in bids]
+
+    # Raise anything below the floor, and fund it from the columns above the
+    # floor in proportion to their surplus. Guard the degenerate case where
+    # every column is at or under the floor (a very wide table of tiny cells):
+    # there is nothing to take from, so leave the even split alone.
+    deficit = sum(min_in - w for w in widths if w < min_in)
+    if deficit > 0:
+        surplus = sum(w - min_in for w in widths if w > min_in)
+        if surplus > deficit:
+            widths = [
+                min_in if w < min_in
+                else w - (w - min_in) * (deficit / surplus)
+                for w in widths
+            ]
+        else:
+            widths = [total_in / n_cols] * n_cols
+    return widths
+
+
 def render_md_table(doc, table_data: dict) -> None:
     """
     Render a single parsed GFM table into the document at the current position.
@@ -662,7 +732,7 @@ def render_md_table(doc, table_data: dict) -> None:
             alignments.append(WD_ALIGN_PARAGRAPH.LEFT)
 
     n_cols = len(header_row)
-    col_w  = 8.0 / n_cols   # distribute evenly across 8" content width
+    col_widths = _column_widths(header_row, body_rows, n_cols)
 
     table = doc.add_table(rows=1, cols=n_cols)
     table.style     = 'Table Grid'
@@ -673,7 +743,7 @@ def render_md_table(doc, table_data: dict) -> None:
     hdr = table.rows[0]
     for i, col_text in enumerate(header_row):
         cell = hdr.cells[i]
-        cell.width = Inches(col_w)
+        cell.width = Inches(col_widths[i])
         set_cell_bg(cell, "2E75B6")
         set_cell_borders(cell, color="CCCCCC", sz=4)
         set_cell_margins(cell)
@@ -692,7 +762,7 @@ def render_md_table(doc, table_data: dict) -> None:
         fill = "F2F2F2" if ridx % 2 == 1 else "FFFFFF"
         for i in range(n_cols):
             cell = row.cells[i]
-            cell.width = Inches(col_w)
+            cell.width = Inches(col_widths[i])
             set_cell_bg(cell, fill)
             set_cell_borders(cell, color="CCCCCC", sz=4)
             set_cell_margins(cell)

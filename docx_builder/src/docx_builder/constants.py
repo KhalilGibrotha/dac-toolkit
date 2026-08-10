@@ -84,3 +84,12 @@ TWIPS_TO_EMU = 635
 # twips (~5.4 pt) for left/right. These values produce compact, scannable rows.
 TABLE_CELL_MARGIN_V = 36    # 1.8 pt — top and bottom
 TABLE_CELL_MARGIN_H = 72    # 3.6 pt — left and right (half the Word default)
+
+# ── Table column widths ──────────────────────────────────────────────────────
+# Columns are sized by how much text they hold rather than split evenly, so a
+# column of single digits stops claiming the same inches as a column of
+# sentences. See _column_widths() in markdown_parser.py for the allocation.
+TABLE_TOTAL_WIDTH_IN = 8.0   # content width between 1" margins on US Letter
+TABLE_MIN_COL_IN     = 0.55  # floor: narrow stays legible, never a sliver
+TABLE_COL_CHAR_CAP   = 48    # a cell longer than this wraps regardless, so it
+                             # stops bidding for width past this point
