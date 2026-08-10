@@ -46,7 +46,11 @@ from docx.opc.constants import RELATIONSHIP_TYPE as RT
 from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
 
-from .constants import BLUE_LINK, BLACK, FONT_BODY, GRAY_TEXT
+from .constants import (BLUE_LINK, BLACK, FONT_BODY, FONT_MONO, GRAY_TEXT,
+                        SIZE_BODY, SIZE_CAPTION, SIZE_CODE,
+                        SIZE_CODE_IN_CELL, SIZE_TABLE_CELL, SIZE_TABLE_HEADER,
+                        TABLE_COL_CHAR_CAP, TABLE_MIN_COL_IN,
+                        TABLE_TOTAL_WIDTH_IN)
 from .diagrams import fit_image_dimensions
 from .xml_helpers import (
     set_run_color, para_spacing,
@@ -213,7 +217,7 @@ def _add_cell_run(para, text, *, bold, italic, code, color, font_name, font_size
         run           = para.add_run(segment_text)
         run.bold      = bold
         run.italic    = italic
-        run.font.name = "Courier New" if code else ("Segoe UI Emoji" if is_emoji else font_name)
+        run.font.name = ("Segoe UI Emoji" if is_emoji and not code else font_name)
         run.font.size = font_size
         run.underline = underline
         set_run_color(run, color)
@@ -226,7 +230,7 @@ def _render_cell_text(para, text, *, base_bold=False, color, font_name, font_siz
     Parse inline markdown in *text* and add styled runs to *para*.
 
     Recognised constructs:
-      ``code``             → Courier New, dark-gray, 9 pt
+      ``code``             → monospace, dark-gray, one point below the cell
       ***bold+italic***    → bold + italic
       **bold** / __bold__  → bold
       *italic* / _italic_  → italic
@@ -260,7 +264,8 @@ def _render_cell_text(para, text, *, base_bold=False, color, font_name, font_siz
             _add_cell_run(para, matched[1:-1],
                           bold=False, italic=False, code=True,
                           color=RGBColor(0x1F, 0x1F, 0x1F),
-                          font_name="Courier New", font_size=Pt(9))
+                          font_name=FONT_MONO,
+                          font_size=Pt(SIZE_CODE_IN_CELL))
         elif m.group(2):                        # ***bold+italic***
             _add_cell_run(para, matched[3:-3],
                           bold=True, italic=True, code=False,
@@ -359,8 +364,9 @@ class HtmlToDocx(HTMLParser):
             if not segment_text:
                 continue
             run           = para.add_run(segment_text)
-            run.font.name = "Courier New" if code else ("Segoe UI Emoji" if is_emoji else FONT_BODY)
-            run.font.size = Pt(9) if code else Pt(10)
+            run.font.name = (FONT_MONO if code
+                             else "Segoe UI Emoji" if is_emoji else FONT_BODY)
+            run.font.size = Pt(SIZE_CODE if code else SIZE_BODY)
             run.bold      = bold
             run.italic    = italic
             if link:
@@ -417,7 +423,7 @@ class HtmlToDocx(HTMLParser):
                 run           = cap.add_run(alt)
                 run.italic    = True
                 run.font.name = FONT_BODY
-                run.font.size = Pt(9)
+                run.font.size = Pt(SIZE_CAPTION)
                 set_run_color(run, GRAY_TEXT)
         else:
             # Image not found — warn without crashing
@@ -426,7 +432,7 @@ class HtmlToDocx(HTMLParser):
             run = p.add_run(f'[Image not found: {src}]')
             run.italic    = True
             run.font.name = FONT_BODY
-            run.font.size = Pt(10)
+            run.font.size = Pt(SIZE_BODY)
             set_run_color(run, RGBColor(0xCC, 0x00, 0x00))
 
     # ── HTMLParser callbacks ──────────────────────────────────────────────────
@@ -483,7 +489,7 @@ class HtmlToDocx(HTMLParser):
             self._current_para.paragraph_format.first_line_indent = Inches(-indent_hanging_in)
             run = self._current_para.add_run(f"{prefix}\t")
             run.font.name = FONT_BODY
-            run.font.size = Pt(10)
+            run.font.size = Pt(SIZE_BODY)
 
         elif tag == 'blockquote':
             self._in_blockquote = True
@@ -553,8 +559,8 @@ class HtmlToDocx(HTMLParser):
             shd.set(_qn('w:fill'),  'F2F2F2')
             pPr.append(shd)
             run = p.add_run(text)
-            run.font.name = "Courier New"
-            run.font.size = Pt(9)
+            run.font.name = FONT_MONO
+            run.font.size = Pt(SIZE_CODE)
             set_run_color(run, RGBColor(0x1F, 0x1F, 0x1F))
             self._flush_para()
 
@@ -637,6 +643,74 @@ def extract_md_tables(md_text: str) -> tuple[str, list[dict]]:
     return processed, tables
 
 
+_MD_INLINE_RE = re.compile(
+    r'\[([^\]]*)\]\([^)]*\)'      # [text](url) -> text
+    r'|<([^>\s]+)>'               # <url>       -> url
+    r'|[`*_]+'                    # emphasis and code marks
+)
+
+
+def _visible_len(cell: str) -> str:
+    """Cell text as the reader sees it, with inline markdown syntax removed.
+
+    Width should follow rendered text, not source. Without this a cell of
+    ``**Recommended target**`` claims four characters it never draws.
+    """
+    return _MD_INLINE_RE.sub(lambda m: m.group(1) or m.group(2) or '', cell)
+
+
+def _column_widths(header_row, body_rows, n_cols,
+                   total_in=TABLE_TOTAL_WIDTH_IN,
+                   min_in=TABLE_MIN_COL_IN,
+                   char_cap=TABLE_COL_CHAR_CAP):
+    """Distribute table width across columns by how much text each holds.
+
+    Even distribution is what makes rendered tables look wrong: a column of
+    single digits claims the same inches as a column of sentences, so one
+    side is a field of whitespace while the other wraps every row.
+
+    Each column asks for width on two grounds:
+
+    * its **longest word**, because a word that does not fit is a word that
+      breaks badly or overflows the cell; and
+    * its **longest cell**, capped at *char_cap* — past that point a cell is
+      going to wrap no matter what it gets, so letting it bid its full length
+      would starve every other column to no benefit.
+
+    Widths are then allocated in proportion to those bids, and any column
+    landing under *min_in* is raised to it, with the shortfall taken from the
+    columns that have room to give. A single-digit column ends up narrow but
+    still legible, which is the whole point.
+    """
+    def bid(idx):
+        texts = [_visible_len(header_row[idx] if idx < len(header_row) else '')]
+        texts += [_visible_len(row[idx]) for row in body_rows if idx < len(row)]
+        longest_word = max((len(w) for t in texts for w in t.split()), default=1)
+        longest_cell = max((len(t) for t in texts), default=1)
+        return float(max(longest_word, min(longest_cell, char_cap), 1))
+
+    bids  = [bid(i) for i in range(n_cols)]
+    total_bid = sum(bids) or 1.0
+    widths = [total_in * b / total_bid for b in bids]
+
+    # Raise anything below the floor, and fund it from the columns above the
+    # floor in proportion to their surplus. Guard the degenerate case where
+    # every column is at or under the floor (a very wide table of tiny cells):
+    # there is nothing to take from, so leave the even split alone.
+    deficit = sum(min_in - w for w in widths if w < min_in)
+    if deficit > 0:
+        surplus = sum(w - min_in for w in widths if w > min_in)
+        if surplus > deficit:
+            widths = [
+                min_in if w < min_in
+                else w - (w - min_in) * (deficit / surplus)
+                for w in widths
+            ]
+        else:
+            widths = [total_in / n_cols] * n_cols
+    return widths
+
+
 def render_md_table(doc, table_data: dict) -> None:
     """
     Render a single parsed GFM table into the document at the current position.
@@ -660,7 +734,7 @@ def render_md_table(doc, table_data: dict) -> None:
             alignments.append(WD_ALIGN_PARAGRAPH.LEFT)
 
     n_cols = len(header_row)
-    col_w  = 8.0 / n_cols   # distribute evenly across 8" content width
+    col_widths = _column_widths(header_row, body_rows, n_cols)
 
     table = doc.add_table(rows=1, cols=n_cols)
     table.style     = 'Table Grid'
@@ -671,7 +745,7 @@ def render_md_table(doc, table_data: dict) -> None:
     hdr = table.rows[0]
     for i, col_text in enumerate(header_row):
         cell = hdr.cells[i]
-        cell.width = Inches(col_w)
+        cell.width = Inches(col_widths[i])
         set_cell_bg(cell, "2E75B6")
         set_cell_borders(cell, color="CCCCCC", sz=4)
         set_cell_margins(cell)
@@ -682,7 +756,7 @@ def render_md_table(doc, table_data: dict) -> None:
                           base_bold=True,
                           color=RGBColor(0xFF, 0xFF, 0xFF),
                           font_name=FONT_BODY,
-                          font_size=Pt(10))
+                          font_size=Pt(SIZE_TABLE_HEADER))
 
     # Body rows
     for ridx, body_row in enumerate(body_rows):
@@ -690,7 +764,7 @@ def render_md_table(doc, table_data: dict) -> None:
         fill = "F2F2F2" if ridx % 2 == 1 else "FFFFFF"
         for i in range(n_cols):
             cell = row.cells[i]
-            cell.width = Inches(col_w)
+            cell.width = Inches(col_widths[i])
             set_cell_bg(cell, fill)
             set_cell_borders(cell, color="CCCCCC", sz=4)
             set_cell_margins(cell)
@@ -702,7 +776,7 @@ def render_md_table(doc, table_data: dict) -> None:
                               base_bold=False,
                               color=BLACK,
                               font_name=FONT_BODY,
-                              font_size=Pt(9))
+                              font_size=Pt(SIZE_TABLE_CELL))
 
     # Keep the table together on one page unless it is too large to fit.
     #

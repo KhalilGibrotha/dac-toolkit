@@ -15,7 +15,7 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.enum.table import WD_TABLE_ALIGNMENT
 from docx.shared import RGBColor
 
-from .constants import BLUE_DARK, BLACK, FONT_BODY, FONT_TITLE
+from .constants import BLUE_DARK, BLACK, FONT_BODY, FONT_TITLE, SIZE_TABLE_CELL, SIZE_TABLE_HEADER
 from .xml_helpers import (
     set_run_color, para_spacing,
     set_cell_bg, set_cell_borders, set_table_border,
@@ -69,7 +69,7 @@ def build_revision_table(doc, meta: dict, md_path: str | None = None):
         run = p.add_run(col)
         run.bold      = True
         run.font.name = FONT_BODY
-        run.font.size = Pt(10)
+        run.font.size = Pt(SIZE_TABLE_HEADER)
         set_run_color(run, RGBColor(0xFF, 0xFF, 0xFF))
 
     # ── Revision rows ─────────────────────────────────────────────────────────
@@ -115,7 +115,7 @@ def build_revision_table(doc, meta: dict, md_path: str | None = None):
             para_spacing(p, before=60, after=60)
             run = p.add_run(val)
             run.font.name = FONT_BODY
-            run.font.size = Pt(10)
+            run.font.size = Pt(SIZE_TABLE_CELL)
             set_run_color(run, BLACK)
 
     # ── Metadata block below table ────────────────────────────────────────────

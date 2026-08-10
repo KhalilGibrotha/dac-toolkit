@@ -39,6 +39,20 @@ DARK_NAVY  = RGBColor(0x1A, 0x2F, 0x4A)
 # ── Typography ────────────────────────────────────────────────────────────────
 FONT_BODY  = "Calibri"
 FONT_TITLE = "Calibri"
+FONT_MONO  = "Courier New"
+
+# Point sizes. Tables render below body size on purpose: a table is scanned
+# rather than read, and the smaller face keeps rows short and cells from
+# wrapping, which is most of what makes a rendered table look tight. The
+# header row carries the same size as the cells because bold white text on
+# the header fill already separates it - size would be a third cue on top of
+# colour and weight.
+SIZE_BODY         = 10   # body paragraphs and list text
+SIZE_TABLE_CELL   = 9    # table body cells
+SIZE_TABLE_HEADER = 9    # table header row
+SIZE_CODE         = 9    # inline code and fenced code blocks in body text
+SIZE_CAPTION      = 9    # image captions
+SIZE_CODE_IN_CELL = 8    # inline code inside a table cell, one below the cell
 
 # ── Organization identity (defaults) ─────────────────────────────────────────
 # These values appear on the cover page and in document footers.
@@ -71,3 +85,12 @@ TWIPS_TO_EMU = 635
 # twips (~5.4 pt) for left/right. These values produce compact, scannable rows.
 TABLE_CELL_MARGIN_V = 36    # 1.8 pt — top and bottom
 TABLE_CELL_MARGIN_H = 72    # 3.6 pt — left and right (half the Word default)
+
+# ── Table column widths ──────────────────────────────────────────────────────
+# Columns are sized by how much text they hold rather than split evenly, so a
+# column of single digits stops claiming the same inches as a column of
+# sentences. See _column_widths() in markdown_parser.py for the allocation.
+TABLE_TOTAL_WIDTH_IN = 8.0   # content width between 1" margins on US Letter
+TABLE_MIN_COL_IN     = 0.55  # floor: narrow stays legible, never a sliver
+TABLE_COL_CHAR_CAP   = 48    # a cell longer than this wraps regardless, so it
+                             # stops bidding for width past this point
