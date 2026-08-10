@@ -46,7 +46,8 @@ from docx.opc.constants import RELATIONSHIP_TYPE as RT
 from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
 
-from .constants import BLUE_LINK, BLACK, FONT_BODY, GRAY_TEXT
+from .constants import (BLUE_LINK, BLACK, FONT_BODY, FONT_MONO, GRAY_TEXT,
+                        SIZE_CODE_IN_CELL, SIZE_TABLE_CELL, SIZE_TABLE_HEADER)
 from .diagrams import fit_image_dimensions
 from .xml_helpers import (
     set_run_color, para_spacing,
@@ -226,7 +227,7 @@ def _render_cell_text(para, text, *, base_bold=False, color, font_name, font_siz
     Parse inline markdown in *text* and add styled runs to *para*.
 
     Recognised constructs:
-      ``code``             → Courier New, dark-gray, 9 pt
+      ``code``             → monospace, dark-gray, one point below the cell
       ***bold+italic***    → bold + italic
       **bold** / __bold__  → bold
       *italic* / _italic_  → italic
@@ -260,7 +261,8 @@ def _render_cell_text(para, text, *, base_bold=False, color, font_name, font_siz
             _add_cell_run(para, matched[1:-1],
                           bold=False, italic=False, code=True,
                           color=RGBColor(0x1F, 0x1F, 0x1F),
-                          font_name="Courier New", font_size=Pt(9))
+                          font_name=FONT_MONO,
+                          font_size=Pt(SIZE_CODE_IN_CELL))
         elif m.group(2):                        # ***bold+italic***
             _add_cell_run(para, matched[3:-3],
                           bold=True, italic=True, code=False,
@@ -682,7 +684,7 @@ def render_md_table(doc, table_data: dict) -> None:
                           base_bold=True,
                           color=RGBColor(0xFF, 0xFF, 0xFF),
                           font_name=FONT_BODY,
-                          font_size=Pt(10))
+                          font_size=Pt(SIZE_TABLE_HEADER))
 
     # Body rows
     for ridx, body_row in enumerate(body_rows):
@@ -702,7 +704,7 @@ def render_md_table(doc, table_data: dict) -> None:
                               base_bold=False,
                               color=BLACK,
                               font_name=FONT_BODY,
-                              font_size=Pt(9))
+                              font_size=Pt(SIZE_TABLE_CELL))
 
     # Keep the table together on one page unless it is too large to fit.
     #

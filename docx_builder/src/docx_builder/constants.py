@@ -39,6 +39,19 @@ DARK_NAVY  = RGBColor(0x1A, 0x2F, 0x4A)
 # ── Typography ────────────────────────────────────────────────────────────────
 FONT_BODY  = "Calibri"
 FONT_TITLE = "Calibri"
+FONT_MONO  = "Courier New"
+
+# Point sizes. Tables render below body size on purpose: a table is scanned
+# rather than read, and the smaller face keeps rows short and cells from
+# wrapping, which is most of what makes a rendered table look tight. The
+# header row carries the same size as the cells because bold white text on
+# the header fill already separates it - size would be a third cue on top of
+# colour and weight.
+SIZE_BODY         = 10   # body paragraphs and list text
+SIZE_TABLE_CELL   = 9    # table body cells
+SIZE_TABLE_HEADER = 9    # table header row
+SIZE_CODE         = 9    # inline code in body text
+SIZE_CODE_IN_CELL = 8    # inline code inside a table cell, one below the cell
 
 # ── Organization identity (defaults) ─────────────────────────────────────────
 # These values appear on the cover page and in document footers.
