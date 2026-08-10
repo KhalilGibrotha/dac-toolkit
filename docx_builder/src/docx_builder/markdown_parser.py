@@ -195,6 +195,12 @@ _INLINE_MD_RE = re.compile(
     # cell.
     r'|(?P<link>\[(?P<ltext>[^\]\n]*)\]'
     r'\((?P<lurl>(?:[^()\s]|\([^()\s]*\))*)\))'  # [text](url)
+    # Autolink <https://...>. Without this a cell containing one renders the
+    # angle brackets literally, which is what a reader saw in the external
+    # references table of a real document. Restricted to a scheme-looking
+    # target so ordinary angle-bracketed prose in a cell - <placeholder>,
+    # <name> - is left alone rather than being swallowed as a link.
+    r'|(?P<auto><(?P<aurl>[A-Za-z][A-Za-z0-9+.-]*:[^>\s]+)>)'
 )
 
 
@@ -256,6 +262,16 @@ def _render_cell_text(para, text, *, base_bold=False, color, font_name, font_siz
             # they would in GitHub, just without a destination - which beats
             # showing them raw [text](path) markdown.
             _add_cell_run(para, label,
+                          bold=base_bold, italic=False, code=False,
+                          color=BLUE_LINK, font_name=font_name,
+                          font_size=font_size, underline=True,
+                          container=container)
+        elif m.group('auto'):                   # <https://example.com>
+            # The URL is both the label and the target; the brackets are
+            # syntax and never render.
+            url = m.group('aurl')
+            container = open_hyperlink(para, url)
+            _add_cell_run(para, url,
                           bold=base_bold, italic=False, code=False,
                           color=BLUE_LINK, font_name=font_name,
                           font_size=font_size, underline=True,
