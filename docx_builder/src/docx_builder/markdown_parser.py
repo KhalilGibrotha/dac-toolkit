@@ -677,6 +677,12 @@ def _column_widths(header_row, body_rows, n_cols,
       going to wrap no matter what it gets, so letting it bid its full length
       would starve every other column to no benefit.
 
+    Both bids are capped. The word bid needs it as much as the cell bid does:
+    a long URL is a single unbreakable token, and uncapped it would ask for
+    its entire length and leave the rest of the table nothing. A token longer
+    than the cap gets broken by the renderer whatever width it is given, so
+    bidding past the cap buys damage rather than avoiding it.
+
     Widths are then allocated in proportion to those bids, and any column
     landing under *min_in* is raised to it, with the shortfall taken from the
     columns that have room to give. A single-digit column ends up narrow but
@@ -687,7 +693,8 @@ def _column_widths(header_row, body_rows, n_cols,
         texts += [_visible_len(row[idx]) for row in body_rows if idx < len(row)]
         longest_word = max((len(w) for t in texts for w in t.split()), default=1)
         longest_cell = max((len(t) for t in texts), default=1)
-        return float(max(longest_word, min(longest_cell, char_cap), 1))
+        return float(max(min(longest_word, char_cap),
+                         min(longest_cell, char_cap), 1))
 
     bids  = [bid(i) for i in range(n_cols)]
     total_bid = sum(bids) or 1.0

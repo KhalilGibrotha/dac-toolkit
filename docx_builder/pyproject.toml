@@ -20,3 +20,14 @@ docx-build-all = "docx_builder.batch_cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+# Without this, `pytest` reports a collection error whose message points
+# nowhere useful. This directory is itself named docx_builder, so from the
+# repository root the *project folder* answers `import docx_builder` before
+# the real package under src/ is ever consulted, and the import fails on the
+# first submodule that only exists in the real one. Putting src on the path
+# and naming the test directory makes a bare `pytest` work from either the
+# repository root or this directory.
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
