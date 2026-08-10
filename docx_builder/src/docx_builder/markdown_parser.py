@@ -47,6 +47,7 @@ from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
 
 from .constants import (BLUE_LINK, BLACK, FONT_BODY, FONT_MONO, GRAY_TEXT,
+                        SIZE_BODY, SIZE_CAPTION, SIZE_CODE,
                         SIZE_CODE_IN_CELL, SIZE_TABLE_CELL, SIZE_TABLE_HEADER,
                         TABLE_COL_CHAR_CAP, TABLE_MIN_COL_IN,
                         TABLE_TOTAL_WIDTH_IN)
@@ -216,7 +217,7 @@ def _add_cell_run(para, text, *, bold, italic, code, color, font_name, font_size
         run           = para.add_run(segment_text)
         run.bold      = bold
         run.italic    = italic
-        run.font.name = "Courier New" if code else ("Segoe UI Emoji" if is_emoji else font_name)
+        run.font.name = ("Segoe UI Emoji" if is_emoji and not code else font_name)
         run.font.size = font_size
         run.underline = underline
         set_run_color(run, color)
@@ -363,8 +364,9 @@ class HtmlToDocx(HTMLParser):
             if not segment_text:
                 continue
             run           = para.add_run(segment_text)
-            run.font.name = "Courier New" if code else ("Segoe UI Emoji" if is_emoji else FONT_BODY)
-            run.font.size = Pt(9) if code else Pt(10)
+            run.font.name = (FONT_MONO if code
+                             else "Segoe UI Emoji" if is_emoji else FONT_BODY)
+            run.font.size = Pt(SIZE_CODE if code else SIZE_BODY)
             run.bold      = bold
             run.italic    = italic
             if link:
@@ -421,7 +423,7 @@ class HtmlToDocx(HTMLParser):
                 run           = cap.add_run(alt)
                 run.italic    = True
                 run.font.name = FONT_BODY
-                run.font.size = Pt(9)
+                run.font.size = Pt(SIZE_CAPTION)
                 set_run_color(run, GRAY_TEXT)
         else:
             # Image not found — warn without crashing
@@ -430,7 +432,7 @@ class HtmlToDocx(HTMLParser):
             run = p.add_run(f'[Image not found: {src}]')
             run.italic    = True
             run.font.name = FONT_BODY
-            run.font.size = Pt(10)
+            run.font.size = Pt(SIZE_BODY)
             set_run_color(run, RGBColor(0xCC, 0x00, 0x00))
 
     # ── HTMLParser callbacks ──────────────────────────────────────────────────
@@ -487,7 +489,7 @@ class HtmlToDocx(HTMLParser):
             self._current_para.paragraph_format.first_line_indent = Inches(-indent_hanging_in)
             run = self._current_para.add_run(f"{prefix}\t")
             run.font.name = FONT_BODY
-            run.font.size = Pt(10)
+            run.font.size = Pt(SIZE_BODY)
 
         elif tag == 'blockquote':
             self._in_blockquote = True
@@ -557,8 +559,8 @@ class HtmlToDocx(HTMLParser):
             shd.set(_qn('w:fill'),  'F2F2F2')
             pPr.append(shd)
             run = p.add_run(text)
-            run.font.name = "Courier New"
-            run.font.size = Pt(9)
+            run.font.name = FONT_MONO
+            run.font.size = Pt(SIZE_CODE)
             set_run_color(run, RGBColor(0x1F, 0x1F, 0x1F))
             self._flush_para()
 

@@ -34,7 +34,7 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
 
-from .constants import TEAL, BLACK, FONT_BODY, FONT_TITLE
+from .constants import TEAL, BLACK, FONT_BODY, FONT_TITLE, SIZE_BODY
 from .xml_helpers import set_run_color, para_spacing
 
 
@@ -118,18 +118,18 @@ def build_toc_page(doc, headings: list[tuple]):
         # Entry text run
         run = toc_entry.add_run(text)
         run.font.name = FONT_BODY
-        run.font.size = Pt(10)
+        run.font.size = Pt(SIZE_BODY)
         run.bold      = (level == 1)
         set_run_color(run, BLACK)
 
         # Tab character + page number
         tab_run = toc_entry.add_run()
         tab_run.font.name = FONT_BODY
-        tab_run.font.size = Pt(10)
+        tab_run.font.size = Pt(SIZE_BODY)
         br = OxmlElement('w:tab')
         tab_run._r.append(br)
 
         page_run = toc_entry.add_run(str(page) if page else ' ')
         page_run.font.name = FONT_BODY
-        page_run.font.size = Pt(10)
+        page_run.font.size = Pt(SIZE_BODY)
         set_run_color(page_run, BLACK)

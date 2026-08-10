@@ -50,7 +50,8 @@ FONT_MONO  = "Courier New"
 SIZE_BODY         = 10   # body paragraphs and list text
 SIZE_TABLE_CELL   = 9    # table body cells
 SIZE_TABLE_HEADER = 9    # table header row
-SIZE_CODE         = 9    # inline code in body text
+SIZE_CODE         = 9    # inline code and fenced code blocks in body text
+SIZE_CAPTION      = 9    # image captions
 SIZE_CODE_IN_CELL = 8    # inline code inside a table cell, one below the cell
 
 # ── Organization identity (defaults) ─────────────────────────────────────────
