@@ -195,6 +195,12 @@ _INLINE_MD_RE = re.compile(
     # cell.
     r'|(?P<link>\[(?P<ltext>[^\]\n]*)\]'
     r'\((?P<lurl>(?:[^()\s]|\([^()\s]*\))*)\))'  # [text](url)
+    # Autolink <https://...>. Without this a cell containing one renders the
+    # angle brackets literally, which is what a reader saw in the external
+    # references table of a real document. Restricted to a scheme-looking
+    # target so ordinary angle-bracketed prose in a cell - <placeholder>,
+    # <name> - is left alone rather than being swallowed as a link.
+    r'|(?P<auto><(?P<aurl>[A-Za-z][A-Za-z0-9+.-]*:[^>\s]+)>)'
 )
 
 
@@ -256,6 +262,16 @@ def _render_cell_text(para, text, *, base_bold=False, color, font_name, font_siz
             # they would in GitHub, just without a destination - which beats
             # showing them raw [text](path) markdown.
             _add_cell_run(para, label,
+                          bold=base_bold, italic=False, code=False,
+                          color=BLUE_LINK, font_name=font_name,
+                          font_size=font_size, underline=True,
+                          container=container)
+        elif m.group('auto'):                   # <https://example.com>
+            # The URL is both the label and the target; the brackets are
+            # syntax and never render.
+            url = m.group('aurl')
+            container = open_hyperlink(para, url)
+            _add_cell_run(para, url,
                           bold=base_bold, italic=False, code=False,
                           color=BLUE_LINK, font_name=font_name,
                           font_size=font_size, underline=True,
@@ -677,6 +693,12 @@ def _column_widths(header_row, body_rows, n_cols,
       going to wrap no matter what it gets, so letting it bid its full length
       would starve every other column to no benefit.
 
+    Both bids are capped. The word bid needs it as much as the cell bid does:
+    a long URL is a single unbreakable token, and uncapped it would ask for
+    its entire length and leave the rest of the table nothing. A token longer
+    than the cap gets broken by the renderer whatever width it is given, so
+    bidding past the cap buys damage rather than avoiding it.
+
     Widths are then allocated in proportion to those bids, and any column
     landing under *min_in* is raised to it, with the shortfall taken from the
     columns that have room to give. A single-digit column ends up narrow but
@@ -687,7 +709,8 @@ def _column_widths(header_row, body_rows, n_cols,
         texts += [_visible_len(row[idx]) for row in body_rows if idx < len(row)]
         longest_word = max((len(w) for t in texts for w in t.split()), default=1)
         longest_cell = max((len(t) for t in texts), default=1)
-        return float(max(longest_word, min(longest_cell, char_cap), 1))
+        return float(max(min(longest_word, char_cap),
+                         min(longest_cell, char_cap), 1))
 
     bids  = [bid(i) for i in range(n_cols)]
     total_bid = sum(bids) or 1.0
