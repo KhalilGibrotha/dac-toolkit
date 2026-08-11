@@ -503,10 +503,60 @@ docx-build-all [--config PATH] [--org PATH] [--logo PATH] [--dry-run] [--force] 
 | `---` | Horizontal rule |
 | `**bold**` `_italic_` | Inline bold and italic |
 | `` `code` `` | Inline monospace |
-| GFM pipe tables | Styled tables with header row and alternating row colors |
+| GFM pipe tables | Styled tables with a header row, alternating row colors, and columns sized to their content — see [Tables](#tables) |
 | `![alt](path)` | Embedded images (path relative to source .md file) |
 | `` ```mermaid ``` `` | Mermaid diagrams rendered to PNG and embedded inline |
 | `` ```plantuml ``` `` etc. | Any Kroki-supported diagram fence (PlantUML, Graphviz, D2, ...) rendered to PNG via Kroki — set `DOCX_BUILDER_KROKI_URL` for a self-hosted instance |
+
+### Tables
+
+Write ordinary GFM pipe tables. Two things happen automatically that are
+worth knowing about, because both are visible in the output and both are
+tunable.
+
+**Columns are sized to their content.** Width is not split evenly across
+columns — a column of single digits beside a column of sentences would waste
+half the table on whitespace and wrap every row of the other. Each column
+asks for width on two grounds, and the larger wins:
+
+- its **longest word**, so a word never breaks mid-token if it can be helped;
+- its **longest cell**, capped, because past a certain length a cell wraps
+  whatever width it receives and bidding further only starves its neighbours.
+
+Widths are then allocated in proportion to those bids, and any column landing
+under the floor is raised to it, funded from the columns with room to give.
+A three-column table of a counter, a sentence, and a short reference lands at
+roughly 0.55" / 4.76" / 2.69" rather than 2.67" three times.
+
+Two consequences worth planning around:
+
+- **A column with one very long cell does not get the whole table.** Cap the
+  expectation rather than the prose: if a cell needs to stay on one line,
+  shorten it, because no width setting will prevent wrapping past the cap.
+- **Header text counts toward the bid.** A long header on a short column
+  widens it, which is usually what you want, but it is why an over-long
+  header name can unbalance an otherwise tidy table.
+
+**Table text renders a point below body text**, header row included. The
+header is distinguished by weight and fill rather than size.
+
+To change any of it, edit these in `docx_builder/src/docx_builder/constants.py`
+and rebuild the image:
+
+| Constant | Default | Controls |
+|---|---|---|
+| `SIZE_TABLE_CELL` | 9 | Point size of body cells |
+| `SIZE_TABLE_HEADER` | 9 | Point size of the header row |
+| `SIZE_CODE_IN_CELL` | 8 | Inline `code` inside a cell |
+| `TABLE_TOTAL_WIDTH_IN` | 8.0 | Content width the columns divide, in inches |
+| `TABLE_MIN_COL_IN` | 0.55 | Floor below which no column is allowed to land |
+| `TABLE_COL_CHAR_CAP` | 48 | Characters past which a cell stops bidding for width |
+| `TABLE_CELL_MARGIN_V` / `_H` | 36 / 72 twips | Internal cell padding |
+
+Cell contents support the same inline markdown as body text — bold, italic,
+`code`, `[links](https://example.com)`, and bare autolinks such as
+`<https://example.com>`. Angle-bracketed text that is not a URL, such as
+`<placeholder>`, is left alone and renders as written.
 
 ### Heading Numbering
 
