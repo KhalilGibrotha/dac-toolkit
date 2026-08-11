@@ -35,7 +35,7 @@ INFORMATIONAL_REQUIRED = ('title', 'status', 'version')   # doc_type exempt
 
 VALID_STATUSES = frozenset({
     'Draft', 'In Review', 'Accepted', 'Rejected',
-    'Retired', 'Proposed', 'Informational',
+    'Retired', 'Proposed', 'Informational', 'Superseded',
 })
 
 

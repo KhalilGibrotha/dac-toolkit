@@ -48,7 +48,7 @@ APPROVED_DOC_TYPES = {
 
 # Status tracks
 STANDARD_STATUSES   = {"Draft", "In Review", "Accepted", "Retired"}
-DECISION_STATUSES   = {"Proposed", "Accepted", "Rejected", "Retired"}
+DECISION_STATUSES   = {"Proposed", "Accepted", "Rejected", "Retired", "Superseded"}
 INFORMATIONAL_STATUSES = {"Informational"}
 
 # Map doc_type to its status track

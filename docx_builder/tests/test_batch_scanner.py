@@ -116,3 +116,47 @@ def test_note_spans_two_lines(tmp_path):
     config = _repo(tmp_path, {"docs/notes.md": NO_FRONT_MATTER})
     _, warnings = scan(config)
     assert "\n" in _notes(warnings)[0]
+
+
+# ── Allowed-status list ──────────────────────────────────────────────────────
+#
+# A status missing from VALID_STATUSES does not fail the build - the document
+# is excluded with a warning, which is easy to miss in batch output. These
+# pin the boundary so an enum change is deliberate in both directions.
+
+DOC_SUPERSEDED = """
+    ---
+    title: "Old Decision"
+    doc_type: "adr"
+    status: "Superseded"
+    version: "1.0"
+    ---
+
+    # Old Decision
+    """
+
+DOC_UNKNOWN_STATUS = """
+    ---
+    title: "Odd"
+    doc_type: "overview"
+    status: "Living"
+    version: "0.1"
+    ---
+
+    # Odd
+    """
+
+
+def test_superseded_is_a_valid_status(tmp_path):
+    config = _repo(tmp_path, {"docs/old-decision.md": DOC_SUPERSEDED})
+    docs, warnings = scan(config)
+    assert [d.title for d in docs] == ["Old Decision"]
+    assert not [w for w in warnings if "unknown status" in w]
+
+
+def test_unknown_status_excludes_with_a_warning_not_a_failure(tmp_path):
+    config = _repo(tmp_path, {"docs/odd.md": DOC_UNKNOWN_STATUS,
+                              "docs/ok.md": DOC_VALID})
+    docs, warnings = scan(config)
+    assert [d.title for d in docs] == ["Current"]
+    assert any("unknown status 'Living'" in w for w in warnings)
