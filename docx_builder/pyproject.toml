@@ -4,7 +4,12 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "docx-builder"
-version = "1.0.0"
+# Tracks the repository release it ships in, because the image is the product
+# and "which docx_builder is this?" should have one answer. It sat at 1.0.0
+# through the whole of v1.1.0, whose headline change was table rendering
+# inside this package — so the number was answering the question wrongly
+# rather than declining to answer it.
+version = "1.2.0"
 description = "Converts Markdown + YAML front matter to styled DOCX with cover page, TOC, and auto-numbered headings"
 requires-python = ">=3.10"
 dependencies = [
