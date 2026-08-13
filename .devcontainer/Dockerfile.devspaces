@@ -28,15 +28,22 @@ RUN dnf config-manager --set-disabled rhel-9-for-x86_64-appstream-rpms \
 # keep a stale base for weeks. Upgrading here picks up every fixable CVE at
 # build time; the Trivy gate below verifies it worked. If the gate ever fails
 # on a package this upgrade should have fixed, the cached layer is stale —
-# re-run the workflow with the cache invalidated (or bump this comment).
+# re-run the workflow with the cache invalidated, or bump CACHE_BUST below.
 #
-# Cache-bust 2026-08-13: the v1.2.0 tag build failed the Trivy gate on
-# CVE-2026-11940 (python3, tarfile extraction filter bypass), fixable to
-# 3.9.25-7.el9_8.3. Worth recording why bumping the base would NOT have
-# fixed it: the current ubi9/python-312 still ships -7.el9_8.2, and the
-# fixed RPM comes from ubi-9-baseos-rpms at build time. This layer was the
-# only thing that could pick it up, and it was cached.
-RUN dnf upgrade -y --nodocs && dnf clean all
+# CACHE_BUST is INSIDE the RUN instruction on purpose. An earlier version of
+# this comment said "bump this comment", which cannot work: the Dockerfile
+# parser strips `#` lines before computing the layer cache key, so editing
+# them changes nothing and the stale layer is served again. Only the
+# instruction text counts, so the date has to live in the command.
+#
+# 2026-08-13: bumped because the v1.2.0 tag build failed the Trivy gate on
+# CVE-2026-11940 (python3, tarfile extraction filter bypass). Note that
+# bumping the pinned base would NOT have fixed it — the current
+# ubi9/python-312 still ships -7.el9_8.2, and -7.el9_8.3 comes from
+# ubi-9-baseos-rpms at build time. This layer is the only thing that applies
+# it.
+RUN CACHE_BUST=2026-08-13 && echo "cache bust: $CACHE_BUST" \
+    && dnf upgrade -y --nodocs && dnf clean all
 
 # ── System dependencies for Chromium (Puppeteer) and Pandoc ──────────────────
 RUN dnf install -y --nodocs \
