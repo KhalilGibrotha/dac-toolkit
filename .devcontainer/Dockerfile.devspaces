@@ -100,12 +100,13 @@ RUN npm install -g "@mermaid-js/mermaid-cli@${MERMAID_CLI_VERSION}" \
 
 # ── markdownlint-cli2: same gate CI runs, pinned, with security overrides ────
 # Installed in a dedicated app dir (not -g) so npm `overrides` can force
-# patched transitive deps: 0.23.0 ships js-yaml <5.2.2 (GHSA-pm4m-ph32-ghv5)
-# and shell-quote <1.9.0 (CVE-2026-13311), both HIGH, both fixed upstream.
+# patched transitive deps: 0.23.0 ships js-yaml <5.2.2 (GHSA-pm4m-ph32-ghv5),
+# shell-quote <1.9.0 (CVE-2026-13311), and smol-toml <1.7.1 (CVE-2026-85730),
+# all HIGH, all fixed upstream.
 # Drop the overrides when the markdownlint-cli2 pin advances past releases
 # that ship the fixes.
 RUN mkdir -p /opt/markdownlint && cd /opt/markdownlint \
-    && printf '%s' '{"dependencies":{"markdownlint-cli2":"0.23.0"},"overrides":{"js-yaml":">=5.2.2","shell-quote":">=1.9.0"}}' > package.json \
+    && printf '%s' '{"dependencies":{"markdownlint-cli2":"0.23.0"},"overrides":{"js-yaml":">=5.2.2","shell-quote":">=1.9.0","smol-toml":">=1.7.1"}}' > package.json \
     && npm install --no-audit --no-fund \
     && ln -s /opt/markdownlint/node_modules/.bin/markdownlint-cli2 /usr/local/bin/markdownlint-cli2 \
     && npm cache clean --force \
