@@ -9,7 +9,7 @@ name = "docx-builder"
 # through the whole of v1.1.0, whose headline change was table rendering
 # inside this package - so the number was answering the question wrongly
 # rather than declining to answer it.
-version = "1.2.0"
+version = "1.2.1"
 description = "Converts Markdown + YAML front matter to styled DOCX with cover page, TOC, and auto-numbered headings"
 requires-python = ">=3.10"
 dependencies = [
