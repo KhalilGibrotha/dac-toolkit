@@ -43,6 +43,13 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.enum.table import WD_TABLE_ALIGNMENT
 from docx.shared import RGBColor
 from docx.opc.constants import RELATIONSHIP_TYPE as RT
+
+# A newline inside a Markdown paragraph is a soft break: the author wrapped
+# the source, and the rendered text is meant to reflow. mistune keeps it as a
+# literal "\n" in the text node, and python-docx turns "\n" inside a run into
+# a <w:br/>. Left alone, every wrapped source line becomes a hard line break
+# in Word and body text stops at the wrap column instead of the margin.
+_SOFT_BREAK = re.compile(r'[ \t]*\r?\n[ \t]*')
 from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
 
@@ -464,6 +471,13 @@ class HtmlToDocx(HTMLParser):
             self._handle_img(attrs_dict)
             return
 
+        # br is a void element too. mistune emits it for an intentional hard
+        # break (a trailing backslash or two trailing spaces); a soft wrap
+        # never reaches here because handle_data collapses it to a space.
+        if tag == 'br':
+            self._ensure_para().add_run().add_break()
+            return
+
         self._tag_stack.append((tag, attrs_dict))
 
         if tag in self._skip_tags:
@@ -587,6 +601,10 @@ class HtmlToDocx(HTMLParser):
         if self._in_pre:
             self._pre_buf.append(data)
             return
+
+        # Collapse soft breaks to a space. <pre> keeps its newlines (above),
+        # and an intentional hard break arrives as a <br> tag, not as text.
+        data = _SOFT_BREAK.sub(' ', data)
 
         # Don't create a new paragraph just for inter-element whitespace when
         # no paragraph is open (e.g. whitespace inside <p>...</p> after an
