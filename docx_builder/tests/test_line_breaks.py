@@ -106,7 +106,21 @@ def test_hard_break_survives(tmp_path):
     )
     p = _paragraph_with(paras, "First line of the stanza")
     assert p.count("<w:br/>") == 1
-    assert "Second line of the stanza" in _text(p)
+    # mistune renders the break as "<br />\n"; that newline is the renderer's
+    # separator and must not become a leading space on the second line.
+    assert _text(p) == "First line of the stanzaSecond line of the stanza"
+
+
+def test_hard_break_before_inline_markup(tmp_path):
+    paras = _render(
+        tmp_path,
+        "# Heading\n\n"
+        "First line of the stanza  \n"
+        "*Second* line of the stanza\n",
+    )
+    p = _paragraph_with(paras, "First line of the stanza")
+    assert p.count("<w:br/>") == 1
+    assert _text(p) == "First line of the stanzaSecond line of the stanza"
 
 
 def test_code_block_keeps_its_lines(tmp_path):
