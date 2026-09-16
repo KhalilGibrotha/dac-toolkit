@@ -14,6 +14,7 @@ import sys
 
 import yaml
 
+from . import __version__
 from .builder import build_document
 
 
@@ -61,6 +62,11 @@ YAML front matter keys:
   related_docs    : list  — optional related document references
   revision_history: list  — [{version, date, author, description}, ...]
         """,
+    )
+    parser.add_argument(
+        '--version',
+        action='version',
+        version=f"%(prog)s {__version__}",
     )
     parser.add_argument(
         'input',
