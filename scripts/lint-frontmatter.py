@@ -310,8 +310,8 @@ def main():
     parser.add_argument(
         "--org",
         metavar="FILE",
-        help="Path to org.yaml. Fields it supplies a default for (currently "
-             "owner) stop being required in front matter, matching what "
+        help="Path to org.yaml. Fields it supplies a default for (owner, and "
+             "department via its dept key) stop being required in front matter, matching what "
              "docx-build --org already accepts. Auto-detected from "
              + ", ".join(ORG_FILE_CANDIDATES) + " when omitted.",
     )
