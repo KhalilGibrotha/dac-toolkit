@@ -4,7 +4,8 @@ revision_history.py — Revision history table and document metadata block.
 Renders on its own page (section 3). Contains:
   - A styled "Revision History" heading
   - A table with Version / Date / Author / Description columns
-  - A metadata block below the table: Owner, Audience, Related Docs
+  - A metadata block below the table: Prepared by, Executive Sponsor,
+    Owner, Audience, Related Docs
 
 If no revision_history list is present in front matter, a single row is
 auto-generated from the top-level version/date/author fields.
@@ -20,7 +21,9 @@ from .xml_helpers import (
     set_run_color, para_spacing,
     set_cell_bg, set_cell_borders, set_table_border,
 )
-from .git_metadata import revision_rows, resolve_owner
+from .git_metadata import (
+    revision_rows, resolve_owner, resolve_prepared_by, resolve_sponsor,
+)
 
 
 def build_revision_table(doc, meta: dict, md_path: str | None = None):
@@ -122,8 +125,13 @@ def build_revision_table(doc, meta: dict, md_path: str | None = None):
     audience     = meta.get('audience', [])
     related_docs = meta.get('related_docs', [])
 
+    # Prepared by and Executive Sponsor resolve through the org file, so a
+    # job title and a sponsor are written once rather than per document.
+    # Either renders only when it resolves to something.
     meta_fields = [
-        ("Document Owner", resolve_owner(meta)),
+        ("Prepared by",       resolve_prepared_by(meta)),
+        ("Executive Sponsor", resolve_sponsor(meta)),
+        ("Document Owner",    resolve_owner(meta)),
         ("Audience",       ', '.join(audience)     if isinstance(audience, list)     else str(audience)),
         ("Related Docs",   ', '.join(related_docs) if isinstance(related_docs, list) else str(related_docs)),
     ]

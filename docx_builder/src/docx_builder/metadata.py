@@ -16,7 +16,9 @@ Expected front matter keys (all optional, defaults applied at render time):
     version         : str   — e.g. "1.0"
     date            : str   — e.g. "2026-03-13"
     author          : str   — primary author name
-    owner           : str   — document owner name
+    owner           : str   — document owner name (org.yaml `owner` is the default)
+    sponsor         : str   — executive sponsor; org.yaml `sponsors` keyed by
+                              domain is the default, `false` suppresses it
     audience        : list  — list of audience strings
     related_docs    : list  — list of related document references
     revision_history: list  — list of revision dicts (version/date/author/description)
@@ -26,6 +28,10 @@ Expected front matter keys (all optional, defaults applied at render time):
         addr1 : str — street address      (default: constants.ORG_ADDR1)
         addr2 : str — city / state / zip  (default: constants.ORG_ADDR2)
         url   : str — website URL         (default: constants.ORG_URL)
+        owner    : str  — default document owner (a team)
+        authors  : dict — git identity -> display name
+        titles   : dict — display name -> job title, for the Prepared-by line
+        sponsors : dict — document domain -> executive sponsor
 
     Example org override (omit to use the compiled-in defaults):
         org:
