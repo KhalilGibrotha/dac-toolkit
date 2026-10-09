@@ -12,3 +12,24 @@ org:
   addr1: "123 Main Street"
   addr2: "Anytown, USA"
   url: "www.example.com"
+
+  # Default document owner: the accountable team. A document owned by
+  # another team overrides it with its own owner: field.
+  owner: "Enterprise Architecture"
+
+  # Display names for git identities the commit email cannot resolve
+  # (handles, noreply addresses). Keys match the git author name or email.
+  authors:
+    jdoe: "Jane Doe"
+
+  # Job titles by display name. The revision page's Prepared-by line shows
+  # the front-matter author as "Name, Title" when the name is mapped here;
+  # the author field itself stays a bare name.
+  titles:
+    "Jane Doe": "Lead Enterprise Architect"
+
+  # Executive sponsor by document domain (the front-matter domain: value).
+  # A document overrides with its own sponsor:, or hides it with
+  # sponsor: false.
+  sponsors:
+    automation: "Sam Smith, VP Platform Engineering"

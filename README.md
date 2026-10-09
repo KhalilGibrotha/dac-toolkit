@@ -80,6 +80,16 @@ Copy `dac/org.yaml.example` to `dac/org.yaml` and fill in your
 organization's name, department, and address. Add a logo as `dac/logo.png`
 and uncomment the `logo: dac/logo.png` line in `dac/docx-build.yml`.
 
+The org file also carries what is the same on every document, so it is
+written once: the default `owner` (a team), `authors` (git identities to
+display names), `titles` (display names to job titles, shown on the
+revision page's Prepared-by line), and `sponsors` (document domain to
+executive sponsor). A document overrides any of them in its own front
+matter; `sponsor: false` hides the sponsor line. With `--org` in effect,
+`owner` and `department` may be omitted from front matter; the cover's
+department line then falls back to the org file's `dept`. See
+`examples/org.yaml`.
+
 ### 4. Write and build
 
 Copy a template from `dac/templates/` into `docs/` (or another content

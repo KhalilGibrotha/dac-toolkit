@@ -23,6 +23,16 @@ the name: `first.last@example.org` yields `First Last`. Addresses that carry
 no name (noreply forms, bare handles) fall back to the git author name, then
 to front matter. An `authors:` map in org.yaml overrides any of it for
 identities the pattern cannot reach.
+
+The metadata block under the revision table also carries three values the
+org file can supply, so one edit sets them for every document:
+
+  * `titles:` maps a display name to a job title; the Prepared-by line
+    shows the front-matter author as "Name, Title" when one is mapped.
+  * `sponsors:` maps a document domain to its executive sponsor; a
+    document's own `sponsor:` overrides it, and `sponsor: false` hides it.
+  * `dept:` already names the department for the footer; the cover's
+    department line now falls back to it when front matter omits the field.
 """
 
 from __future__ import annotations
@@ -251,3 +261,61 @@ def resolve_owner(meta: dict) -> str:
         return str(own)
     org = meta.get("org") or {}
     return str(org.get("owner", "") or "")
+
+
+def _lookup(mapping, key: str) -> str:
+    """Case-insensitive lookup in an org.yaml map; '' when absent or malformed."""
+    if not isinstance(mapping, dict) or not key:
+        return ""
+    want = key.strip().lower()
+    for k, v in mapping.items():
+        if str(k).strip().lower() == want:
+            return str(v or "").strip()
+    return ""
+
+
+def resolve_prepared_by(meta: dict) -> str:
+    """The Prepared-by line: the front-matter author, with a job title.
+
+    The title comes from the org file's `titles:` map, keyed by display
+    name, so the author field stays a bare name - it is what the git
+    display-name mapping and the revision entries match on - and the title
+    is written once. An author with no mapped title, such as a team name,
+    renders as the name alone.
+    """
+    author = str(meta.get("author") or "").strip()
+    if not author:
+        return ""
+    title = _lookup((meta.get("org") or {}).get("titles"), author)
+    return f"{author}, {title}" if title else author
+
+
+def resolve_sponsor(meta: dict) -> str:
+    """Executive sponsor: front matter first, then the org default by domain.
+
+    A sponsor is accountable for a body of documents rather than for one,
+    so the org file's `sponsors:` map, keyed by document domain, is the
+    normal source. A document that differs sets its own `sponsor:`; one
+    that has none sets `sponsor: false`, which suppresses the default.
+    """
+    own = meta.get("sponsor")
+    if own is False:
+        return ""
+    if own:
+        return str(own).strip()
+    org = meta.get("org") or {}
+    return _lookup(org.get("sponsors"), str(meta.get("domain") or ""))
+
+
+def resolve_department(meta: dict) -> str:
+    """Cover department line: front matter first, then the org file's dept.
+
+    Same reasoning as the owner: the department is the same on every
+    document a repository holds, so it belongs in the org file, and a
+    document that genuinely differs overrides it.
+    """
+    dept = meta.get("department")
+    if dept:
+        return str(dept)
+    org = meta.get("org") or {}
+    return str(org.get("dept", "") or "")

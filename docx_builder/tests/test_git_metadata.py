@@ -22,7 +22,10 @@ from docx_builder.git_metadata import (
     commit_history,
     contributors,
     display_name_from_email,
+    resolve_department,
     resolve_owner,
+    resolve_prepared_by,
+    resolve_sponsor,
     revision_rows,
 )
 
@@ -203,3 +206,61 @@ def test_owner_falls_back_to_org_default():
 
 def test_owner_empty_when_neither_set():
     assert resolve_owner({}) == ""
+
+
+# ── resolve_prepared_by / resolve_sponsor / resolve_department ───────────────
+# The org file writes a job title, a sponsor, and the department once; every
+# document inherits them, and a document that differs says so itself.
+
+ORG = {
+    "dept": "Platform Engineering",
+    "titles": {"Jane Doe": "Lead Enterprise Architect"},
+    "sponsors": {"Automation": "Sam Smith, VP Platform Engineering"},
+}
+
+
+def test_prepared_by_adds_the_mapped_title():
+    meta = {"author": "Jane Doe", "org": ORG}
+    assert resolve_prepared_by(meta) == "Jane Doe, Lead Enterprise Architect"
+
+
+def test_prepared_by_matches_the_name_case_insensitively():
+    meta = {"author": "jane doe", "org": ORG}
+    assert resolve_prepared_by(meta) == "jane doe, Lead Enterprise Architect"
+
+
+def test_prepared_by_without_a_title_is_the_bare_name():
+    # A team as author, or a person the org file does not know: no comma,
+    # no invented title.
+    assert resolve_prepared_by({"author": "Enterprise Architecture", "org": ORG}) == "Enterprise Architecture"
+    assert resolve_prepared_by({"author": "Pat Lee"}) == "Pat Lee"
+
+
+def test_prepared_by_is_empty_without_an_author():
+    assert resolve_prepared_by({"org": ORG}) == ""
+
+
+def test_sponsor_defaults_by_domain_case_insensitively():
+    assert resolve_sponsor({"domain": "automation", "org": ORG}) == "Sam Smith, VP Platform Engineering"
+
+
+def test_sponsor_in_front_matter_wins():
+    meta = {"domain": "automation", "sponsor": "Someone Else, VP", "org": ORG}
+    assert resolve_sponsor(meta) == "Someone Else, VP"
+
+
+def test_sponsor_false_suppresses_the_default():
+    assert resolve_sponsor({"domain": "automation", "sponsor": False, "org": ORG}) == ""
+
+
+def test_sponsor_is_empty_when_nothing_names_one():
+    assert resolve_sponsor({"domain": "network", "org": ORG}) == ""
+    assert resolve_sponsor({"domain": "automation"}) == ""
+    # A malformed map must not raise; the document still renders.
+    assert resolve_sponsor({"domain": "automation", "org": {"sponsors": "oops"}}) == ""
+
+
+def test_department_prefers_front_matter_then_org_dept():
+    assert resolve_department({"department": "Platform", "org": ORG}) == "Platform"
+    assert resolve_department({"org": ORG}) == "Platform Engineering"
+    assert resolve_department({}) == ""

@@ -64,7 +64,7 @@ REQUIRED_FIELDS_STANDARD     = ["title", "doc_type", "domain", "department", "st
 # default and drops them from the required set; without it, nothing changes.
 # Rendering and linting must agree on what a document is allowed to omit, or
 # CI rejects documents the builder handles perfectly well.
-ORG_DEFAULTABLE_FIELDS = ["owner"]
+ORG_DEFAULTABLE_FIELDS = ["owner", "department"]
 REQUIRED_FIELDS_INFORMATIONAL = ["title", "status", "date", "author"]
 
 # Files to skip entirely (no front matter expected)

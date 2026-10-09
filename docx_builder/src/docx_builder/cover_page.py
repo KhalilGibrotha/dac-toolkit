@@ -45,6 +45,7 @@ from .constants import (
 from .xml_helpers import (
     set_run_color, para_spacing, set_paragraph_border_bottom,
 )
+from .git_metadata import resolve_department
 
 
 # ── Draft watermark ───────────────────────────────────────────────────────────
@@ -381,7 +382,9 @@ def build_cover_page(doc, meta: dict, logo_path: str | None):
     set_paragraph_border_bottom(rule_para2, color="000000", sz=4)
 
     # ── Department line ───────────────────────────────────────────────────────
-    dept = meta.get('department', '')
+    # Front matter first, then the org file's dept - the same default the
+    # footer already uses - so a repository can stop repeating the field.
+    dept = resolve_department(meta)
     if dept:
         doc_para(dept, italic=True, size=12, color=BLACK, before=80, after=80)
 
