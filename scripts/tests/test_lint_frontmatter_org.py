@@ -85,6 +85,15 @@ def test_blank_owner_is_not_a_default(repo):
     assert _run(repo).returncode == 1
 
 
+@pytest.mark.parametrize("value", ["", "null", "~", "42"])
+def test_placeholder_owner_is_not_a_default(repo, value):
+    # `owner:` with nothing after it parses to None, and str(None) is the
+    # non-empty text "None", which once passed as a default. A number is
+    # not a usable owner either. Only a non-empty string counts.
+    _write_org(repo, f"org:\n  owner: {value}\n")
+    assert _run(repo).returncode == 1
+
+
 @pytest.mark.parametrize(
     ("label", "content"),
     [

@@ -176,10 +176,16 @@ def _org_defaults(org_path: Path | str | None) -> set[str]:
     org = data.get("org", data)
     if not isinstance(org, dict):
         return set()
-    return {
-        field for field in ORG_DEFAULTABLE_FIELDS
-        if str(org.get(ORG_KEY_FOR.get(field, field), "")).strip()
-    }
+    defaults: set[str] = set()
+    for field in ORG_DEFAULTABLE_FIELDS:
+        value = org.get(ORG_KEY_FOR.get(field, field))
+        # An empty placeholder (`dept:` or `dept: null`) parses to None, and
+        # str(None) is the non-empty text "None". Test the type before the
+        # text, or a blank org entry waves through documents that omit the
+        # field and then render with no department at all.
+        if isinstance(value, str) and value.strip():
+            defaults.add(field)
+    return defaults
 
 
 def validate(fm: dict, org_defaults: set[str] | None = None) -> list[tuple[str, str]]:
