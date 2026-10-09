@@ -65,6 +65,11 @@ REQUIRED_FIELDS_STANDARD     = ["title", "doc_type", "domain", "department", "st
 # Rendering and linting must agree on what a document is allowed to omit, or
 # CI rejects documents the builder handles perfectly well.
 ORG_DEFAULTABLE_FIELDS = ["owner", "department"]
+# The org file spells one of those differently: the cover and footer read the
+# department from `dept`. The linter has to look under the same key the
+# builder reads, or a repository that omits `department` renders fine and
+# fails CI.
+ORG_KEY_FOR = {"owner": "owner", "department": "dept"}
 REQUIRED_FIELDS_INFORMATIONAL = ["title", "status", "date", "author"]
 
 # Files to skip entirely (no front matter expected)
@@ -173,7 +178,7 @@ def _org_defaults(org_path: Path | str | None) -> set[str]:
         return set()
     return {
         field for field in ORG_DEFAULTABLE_FIELDS
-        if str(org.get(field, "")).strip()
+        if str(org.get(ORG_KEY_FOR.get(field, field), "")).strip()
     }
 
 
