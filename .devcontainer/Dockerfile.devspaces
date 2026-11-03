@@ -103,11 +103,12 @@ RUN npm install -g "@mermaid-js/mermaid-cli@${MERMAID_CLI_VERSION}" \
 # patched transitive deps: 0.23.0 ships js-yaml <5.2.2 (GHSA-pm4m-ph32-ghv5),
 # shell-quote <1.9.0 (CVE-2026-13311), smol-toml <1.7.1 (CVE-2026-85730), and
 # markdown-it <14.3.3 (CVE-2026-111758, CVE-2026-111759), all HIGH, all fixed
-# upstream. markdownlint-cli2 0.24.0 already carries markdown-it 15.0.3.
+# upstream. markdown-it is pinned to 14.3.3, the fix on the major that
+# markdownlint 0.41.0 targets; 0.24.0 of the CLI moves to markdown-it 15.
 # Drop the overrides when the markdownlint-cli2 pin advances past releases
 # that ship the fixes.
 RUN mkdir -p /opt/markdownlint && cd /opt/markdownlint \
-    && printf '%s' '{"dependencies":{"markdownlint-cli2":"0.23.0"},"overrides":{"js-yaml":">=5.2.2","shell-quote":">=1.9.0","smol-toml":">=1.7.1","markdown-it":">=14.3.3"}}' > package.json \
+    && printf '%s' '{"dependencies":{"markdownlint-cli2":"0.23.0"},"overrides":{"js-yaml":">=5.2.2","shell-quote":">=1.9.0","smol-toml":">=1.7.1","markdown-it":"14.3.3"}}' > package.json \
     && npm install --no-audit --no-fund \
     && ln -s /opt/markdownlint/node_modules/.bin/markdownlint-cli2 /usr/local/bin/markdownlint-cli2 \
     && npm cache clean --force \
