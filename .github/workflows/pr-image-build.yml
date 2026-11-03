@@ -49,3 +49,20 @@ jobs:
           context: .
           file: .devcontainer/Dockerfile.devspaces
           push: false
+          load: true
+          tags: dac-toolkit:scan
+      # The same gate docker-build.yml applies before publishing, so a PR
+      # cannot be green on a build that main then refuses to publish. The
+      # skip-files rationale lives beside the gate in docker-build.yml.
+      - name: Vulnerability gate
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: dac-toolkit:scan
+          format: table
+          exit-code: '1'
+          ignore-unfixed: true
+          severity: HIGH,CRITICAL
+          skip-files: |
+            /opt/quarto-1.6.40/bin/tools/x86_64/esbuild
+            /usr/bin/gh
+            /usr/local/bin/vale
