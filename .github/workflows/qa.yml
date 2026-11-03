@@ -21,6 +21,7 @@ jobs:
           set -e
           for cmd in docx-build docx-build-all dac-init dac-update gen-stock-hashes.py \
                      lint-frontmatter.py lint-mermaid.py lint-encoding.py \
+                     lint-docx-constructs.py \
                      vale pandoc pre-commit markdownlint-cli2 mmdc \
                      quarto render-decks.sh; do
             command -v "$cmd" >/dev/null || { echo "MISSING: $cmd"; exit 1; }
