@@ -243,7 +243,8 @@ dac-toolkit/
 │   ├── docx_manifest.py    Manifest-driven content-repo render wrapper
 │   ├── render-diagrams.sh  Batch render Mermaid .mmd files and fences
 │   ├── render-decks.sh     Render Quarto .qmd decks to PowerPoint + QA gallery
-│   └── lint-decks.py       Deck gate: source↔render pairing and package integrity
+│   ├── lint-decks.py       Deck gate: source↔render pairing and package integrity
+│   └── lint-docx-constructs.py  Flag Markdown the DOCX builder cannot render
 ├── presentations/          Quarto → PowerPoint example (template, theme, palette)
 ├── templates/              Generic document templates (gap analysis, ADR, etc.)
 ├── diagrams/
