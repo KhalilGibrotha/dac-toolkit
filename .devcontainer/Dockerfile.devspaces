@@ -10,7 +10,7 @@
 # for humans only; Dependabot bumps the digest (see .github/dependabot.yml), and
 # the CI vulnerability gate catches the base going stale between bumps.
 # Resolved from ubi9/python-312:latest on 2026-07-21.
-FROM registry.access.redhat.com/ubi9/python-312@sha256:105e70cb265e82beef1687b87b77444a05b410c55d8631e9aa9aa6804fcca45d
+FROM registry.access.redhat.com/ubi9/python-312@sha256:f72227ffc4f3faa3772a6ae91ffc03bcf3c507d6b7a525d2bfe90b3579dcb8af
 
 USER 0
 
